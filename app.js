@@ -15,6 +15,11 @@ const translations = {
     sport_basketball: "Básquetbol",
     sport_hiking: "Senderismo / Trekking",
     sport_tennis: "Tenis / Pádel",
+    sport_online: "Jugar en línea",
+    sport_movies: "Ir al Cine",
+    sport_shopping: "Ir de compras",
+    sport_beach: "Ir a la playa",
+    sport_coffee: "Cafetería",
     sport_other: "Otro",
     filter_all: "Todos",
     feed_heading: "Actividades Disponibles",
@@ -95,6 +100,11 @@ const translations = {
     sport_basketball: "Basketball",
     sport_hiking: "Hiking / Trekking",
     sport_tennis: "Tennis / Padel",
+    sport_online: "Online Gaming",
+    sport_movies: "Movies",
+    sport_shopping: "Shopping",
+    sport_beach: "Beach",
+    sport_coffee: "Coffee Shop",
     sport_other: "Other",
     filter_all: "All",
     feed_heading: "Available Activities",
@@ -292,6 +302,66 @@ const defaultActivities = [
   },
   {
     id: "act-6",
+    hostName: "Carlos Perez",
+    hostEmail: "carlos@gmail.com",
+    hostPhone: "",
+    hostAvatar: AVATARS[3],
+    sport: "online",
+    customSport: "",
+    title: "Torneo de Valorant (Rango Platino)",
+    datetime: "2026-06-09T22:00",
+    spotsTotal: 5,
+    spotsJoined: [
+      { name: "Carlos Perez", email: "carlos@gmail.com", avatar: AVATARS[3] }
+    ],
+    locationName: "Servidor Discord",
+    lat: 0,
+    lng: 0,
+    description: "Buscando 4 jugadores para hacer equipo completo en Valorant. Rango Platino/Diamante. Usaremos Discord para comunicarnos.",
+    comments: []
+  },
+  {
+    id: "act-7",
+    hostName: "Sofia Vergara",
+    hostEmail: "sofia@sportsquad.com",
+    hostPhone: "",
+    hostAvatar: AVATARS[0],
+    sport: "coffee",
+    customSport: "",
+    title: "Tarde de café y charla sobre tecnología",
+    datetime: "2026-06-12T17:30",
+    spotsTotal: 4,
+    spotsJoined: [
+      { name: "Sofia Vergara", email: "sofia@sportsquad.com", avatar: AVATARS[0] }
+    ],
+    locationName: "Starbucks Callao",
+    lat: 40.4201,
+    lng: -3.7058,
+    description: "Busco personas interesadas en tecnología y programación para tomar un café y charlar un rato, intercambiar ideas y hacer networking.",
+    comments: []
+  },
+  {
+    id: "act-8",
+    hostName: "Alejandro Ortiz",
+    hostEmail: "alejandro@sportsquad.com",
+    hostPhone: "",
+    hostAvatar: AVATARS[1],
+    sport: "movies",
+    customSport: "",
+    title: "Ir al cine a ver la nueva película de Marvel",
+    datetime: "2026-06-14T20:30",
+    spotsTotal: 3,
+    spotsJoined: [
+      { name: "Alejandro Ortiz", email: "alejandro@sportsquad.com", avatar: AVATARS[1] }
+    ],
+    locationName: "Cinesa Proyecciones",
+    lat: 40.4312,
+    lng: -3.7028,
+    description: "Tengo muchas ganas de ir a ver el estreno pero mis amigos no pueden. ¡Anímate y compramos palomitas grandes!",
+    comments: []
+  },
+  {
+    id: "act-9",
     hostName: "Marcos Torres",
     hostEmail: "marcos@gmail.com",
     hostPhone: "+34 699 000 111",
@@ -420,7 +490,7 @@ const elements = {
 // --- SUPABASE CONFIGURATION ---
 const SUPABASE_URL = 'https://uhgxtxvsizhwwqxwefka.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoZ3h0eHZzaXpod3dxeHdlZmthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODE3NzMsImV4cCI6MjA5NjM1Nzc3M30.8uemPyDqbmio9Ik8paYd8WlBJeFzwF4PZ_NM94bBdJ4';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- INITIALIZE APPLICATION ---
 async function initApp() {
@@ -488,7 +558,7 @@ function saveProfileToStorage() {
 // --- SUPABASE DATA FUNCTIONS ---
 async function fetchActivities(isSeeding = false) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('activities')
       .select('*')
       .order('created_at', { ascending: false });
@@ -516,8 +586,36 @@ async function fetchActivities(isSeeding = false) {
         comments: act.comments || []
       }));
     } else {
-      // Database is empty. Since defaultActivities is removed, we just initialize as empty.
-      appState.activities = [];
+      if (!isSeeding) {
+        console.log("Database empty. Seeding defaults...");
+        // If db is empty, initialize with default activities to have some demo data
+        for (const act of defaultActivities) {
+          const { error: insertError } = await supabaseClient.from('activities').insert({
+            host_name: act.hostName,
+            host_email: act.hostEmail,
+            host_phone: act.hostPhone,
+            host_avatar: act.hostAvatar,
+            sport: act.sport,
+            custom_sport: act.customSport,
+            title: act.title,
+            datetime: act.datetime,
+            spots_total: act.spotsTotal,
+            spots_joined: act.spotsJoined,
+            location_name: act.locationName,
+            lat: act.lat,
+            lng: act.lng,
+            description: act.description,
+            comments: act.comments
+          });
+          if (insertError) console.error("Error seeding row:", insertError);
+        }
+        // Fetch again after inserting defaults, but pass true to prevent infinite loop
+        await fetchActivities(true); 
+      } else {
+        // If it's still empty after trying to seed, or seeding failed, just show empty
+        console.warn("Seeding failed or database is still empty.");
+        appState.activities = [];
+      }
     }
   } catch (err) {
     console.error("Error fetching activities:", err);
@@ -527,7 +625,7 @@ async function fetchActivities(isSeeding = false) {
 }
 
 function setupRealtime() {
-  supabase
+  supabaseClient
     .channel('public:activities')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, payload => {
       console.log('Realtime change received!', payload);
@@ -620,7 +718,8 @@ function initMainMap() {
 
   const tileUrl = appState.theme === "light"
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
 
   // Map Layer from CartoDB (Visual aesthetic excellence)
   appState.mainTileLayer = L.tileLayer(tileUrl, {
@@ -655,7 +754,8 @@ function initPickerMap() {
 
   const tileUrl = appState.theme === "light"
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
 
   appState.pickerTileLayer = L.tileLayer(tileUrl, {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -1086,59 +1186,61 @@ function renderActivities() {
     fragment.appendChild(card);
 
     // --- ADD MARKER TO MAIN MAP ---
-    let markerColor = "var(--accent-orange)";
-    if (act.sport === "soccer") markerColor = "var(--accent-green)";
-    if (act.sport === "gym") markerColor = "var(--accent-purple)";
-    if (act.sport === "cycling") markerColor = "var(--accent-cyan)";
-    if (act.sport === "hiking") markerColor = "var(--accent-green)";
+    if (act.sport !== 'online') {
+      let markerColor = "var(--accent-orange)";
+      if (act.sport === "soccer") markerColor = "var(--accent-green)";
+      if (act.sport === "gym") markerColor = "var(--accent-purple)";
+      if (act.sport === "cycling") markerColor = "var(--accent-cyan)";
+      if (act.sport === "hiking") markerColor = "var(--accent-green)";
 
-    const customPinHtml = `
-      <div style="
-        background: ${markerColor};
-        width: 28px;
-        height: 28px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid #fff;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      ">
+      const customPinHtml = `
         <div style="
-          transform: rotate(45deg);
-          color: var(--bg-primary);
-          font-size: 0.8rem;
-          font-weight: 700;
+          background: ${markerColor};
+          width: 28px;
+          height: 28px;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #fff;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         ">
-          <i class="${getSportIconClass(act.sport)}"></i>
+          <div style="
+            transform: rotate(45deg);
+            color: var(--bg-primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+          ">
+            <i class="${getSportIconClass(act.sport)}"></i>
+          </div>
         </div>
-      </div>
-    `;
+      `;
 
-    const marker = L.marker([act.lat, act.lng], {
-      icon: L.divIcon({
-        className: 'leaflet-custom-marker',
-        html: customPinHtml,
-        iconSize: [28, 28],
-        iconAnchor: [14, 28],
-        popupAnchor: [0, -30]
-      })
-    });
+      const marker = L.marker([act.lat, act.lng], {
+        icon: L.divIcon({
+          className: 'leaflet-custom-marker',
+          html: customPinHtml,
+          iconSize: [28, 28],
+          iconAnchor: [14, 28],
+          popupAnchor: [0, -30]
+        })
+      });
+      
+      // Setup marker popup card HTML
+      const popupHtml = `
+        <div class="map-popup-card">
+          <span class="sport-badge sport-${act.sport}" style="font-size:0.65rem; padding:0.15rem 0.4rem; margin-bottom:0.25rem;">${sportLabel}</span>
+          <h4>${act.title}</h4>
+          <p><i class="fa-solid fa-location-dot"></i> ${act.locationName}</p>
+          <p><i class="fa-solid fa-users"></i> ${act.spotsTotal - act.spotsJoined.length} ${translations[lang].spots_remaining_suffix}</p>
+          <a href="#" class="map-popup-btn" onclick="event.preventDefault(); window.openActivityDetail('${act.id}');">${lang==='es' ? 'Ver Detalles' : 'View Details'}</a>
+        </div>
+      `;
 
-    // Setup marker popup card HTML
-    const popupHtml = `
-      <div class="map-popup-card">
-        <span class="sport-badge sport-${act.sport}" style="font-size:0.65rem; padding:0.15rem 0.4rem; margin-bottom:0.25rem;">${sportLabel}</span>
-        <h4>${act.title}</h4>
-        <p><i class="fa-solid fa-location-dot"></i> ${act.locationName}</p>
-        <p><i class="fa-solid fa-users"></i> ${act.spotsTotal - act.spotsJoined.length} ${translations[lang].spots_remaining_suffix}</p>
-        <a href="#" class="map-popup-btn" onclick="event.preventDefault(); window.openActivityDetail('${act.id}');">${lang==='es' ? 'Ver Detalles' : 'View Details'}</a>
-      </div>
-    `;
-
-    marker.bindPopup(popupHtml).addTo(appState.mainMap);
-    appState.mapMarkers.push(marker);
+      marker.bindPopup(popupHtml).addTo(appState.mainMap);
+      appState.mapMarkers.push(marker);
+    }
   });
 
   elements.activityListContainer.appendChild(fragment);
@@ -1154,6 +1256,11 @@ function getSportIconClass(sport) {
     case 'basketball': return 'fa-solid fa-basketball';
     case 'hiking': return 'fa-solid fa-mountain-sun';
     case 'tennis': return 'fa-solid fa-table-tennis-paddle-ball';
+    case 'online': return 'fa-solid fa-gamepad';
+    case 'movies': return 'fa-solid fa-film';
+    case 'shopping': return 'fa-solid fa-cart-shopping';
+    case 'beach': return 'fa-solid fa-umbrella-beach';
+    case 'coffee': return 'fa-solid fa-mug-hot';
     default: return 'fa-solid fa-circle-question';
   }
 }
@@ -1241,8 +1348,9 @@ function setupEventListeners() {
     if (e.target === elements.createModal) elements.createModal.classList.remove("active");
   });
 
-  // Form sport dropdown listener (show custom sport field if other selected)
+  // Custom Sport input show/hide and Map hide/show
   elements.formSport.addEventListener("change", (e) => {
+    // Custom sport logic
     if (e.target.value === "other") {
       elements.customSportContainer.style.display = "block";
       elements.formCustomSport.required = true;
@@ -1251,9 +1359,23 @@ function setupEventListeners() {
       elements.formCustomSport.required = false;
       elements.formCustomSport.value = "";
     }
+    
+    // Map hide/show logic for online activities
+    const locationWrapper = document.getElementById("location-fields-wrapper");
+    if (e.target.value === "online") {
+      locationWrapper.style.display = "none";
+      elements.formLat.required = false;
+      elements.formLng.required = false;
+      document.getElementById("form-location").required = false;
+    } else {
+      locationWrapper.style.display = "block";
+      elements.formLat.required = true;
+      elements.formLng.required = true;
+      document.getElementById("form-location").required = true;
+    }
   });
 
-  // Create Activity Form Submission
+  // Address Geocoding Search button
   elements.createActivityForm.addEventListener("submit", handleCreateActivity);
 
   // Address Geocoding Search button
@@ -1390,7 +1512,7 @@ function updateMapTilesTheme() {
   const theme = appState.theme;
   const tileUrl = theme === "light"
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
     
   if (appState.mainTileLayer) {
     appState.mainTileLayer.setUrl(tileUrl);
@@ -1509,13 +1631,20 @@ async function handleAddressGeocode() {
 async function handleCreateActivity(e) {
   e.preventDefault();
   
-  const lat = parseFloat(elements.formLat.value);
-  const lng = parseFloat(elements.formLng.value);
+  const sportSelected = elements.formSport.value;
+  let lat = parseFloat(elements.formLat.value);
+  let lng = parseFloat(elements.formLng.value);
 
-  // Verify coordinates are selected on the map
-  if (isNaN(lat) || isNaN(lng)) {
-    alert(translations[appState.currentLang].alert_map_required);
-    return;
+  // For online activities, map coordinates are not required
+  if (sportSelected === 'online') {
+    lat = 0;
+    lng = 0;
+  } else {
+    // Verify coordinates are selected on the map
+    if (isNaN(lat) || isNaN(lng)) {
+      alert(translations[appState.currentLang].alert_map_required);
+      return;
+    }
   }
 
   const hostProfile = appState.profile;
@@ -1539,7 +1668,7 @@ async function handleCreateActivity(e) {
       }
       
       // Send Update to Supabase
-      const { error } = await supabase.from('activities').update({
+      const { error } = await supabaseClient.from('activities').update({
         title: document.getElementById("form-title").value,
         sport: elements.formSport.value,
         custom_sport: elements.formCustomSport.value,
@@ -1594,7 +1723,7 @@ async function handleCreateActivity(e) {
   };
 
   // Insert to Supabase
-  const { data, error } = await supabase.from('activities').insert(newActivityInsert).select();
+  const { data, error } = await supabaseClient.from('activities').insert(newActivityInsert).select();
 
   if (error) {
     console.error("Error creating activity:", error);
@@ -1783,7 +1912,7 @@ async function toggleJoinStatus(id) {
   elements.joinActivityBtn.disabled = true;
 
   // Send to Supabase
-  const { error } = await supabase.from('activities').update({ spots_joined: newSpotsJoined }).eq('id', id);
+  const { error } = await supabaseClient.from('activities').update({ spots_joined: newSpotsJoined }).eq('id', id);
 
   if (error) {
     console.error("Error joining/leaving activity:", error);
@@ -1876,7 +2005,7 @@ async function handleCommentSubmit(e) {
   elements.commentInputField.disabled = true;
 
   // Send to Supabase
-  const { error } = await supabase.from('activities').update({ comments: currentComments }).eq('id', activity.id);
+  const { error } = await supabaseClient.from('activities').update({ comments: currentComments }).eq('id', activity.id);
 
   if (error) {
     console.error("Error submitting comment:", error);
@@ -1951,7 +2080,7 @@ async function handleDeleteActivity() {
     const id = appState.selectedActivityId;
     
     // Send Delete to Supabase
-    const { error } = await supabase.from('activities').delete().eq('id', id);
+    const { error } = await supabaseClient.from('activities').delete().eq('id', id);
     
     if (error) {
       console.error("Error deleting activity:", error);

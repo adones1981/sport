@@ -85,6 +85,11 @@
             <option value="basketball" data-translate="sport_basketball">Básquetbol</option>
             <option value="hiking" data-translate="sport_hiking">Senderismo / Trekking</option>
             <option value="tennis" data-translate="sport_tennis">Tenis / Pádel</option>
+            <option value="online" data-translate="sport_online">Jugar en línea</option>
+            <option value="movies" data-translate="sport_movies">Ir al Cine</option>
+            <option value="shopping" data-translate="sport_shopping">Ir de compras</option>
+            <option value="beach" data-translate="sport_beach">Ir a la playa</option>
+            <option value="coffee" data-translate="sport_coffee">Cafetería</option>
             <option value="other" data-translate="sport_other">Otro</option>
           </select>
         </div>
@@ -98,6 +103,11 @@
           <button class="badge-tab" data-category="cycling" role="tab" aria-selected="false"><i class="fa-solid fa-bicycle"></i> <span data-translate="sport_cycling">Bici</span></button>
           <button class="badge-tab" data-category="basketball" role="tab" aria-selected="false"><i class="fa-solid fa-basketball"></i> <span data-translate="sport_basketball">Básquet</span></button>
           <button class="badge-tab" data-category="hiking" role="tab" aria-selected="false"><i class="fa-solid fa-mountain-sun"></i> <span data-translate="sport_hiking">Senderismo</span></button>
+          <button class="badge-tab" data-category="online" role="tab" aria-selected="false"><i class="fa-solid fa-gamepad"></i> <span data-translate="sport_online">Online</span></button>
+          <button class="badge-tab" data-category="movies" role="tab" aria-selected="false"><i class="fa-solid fa-film"></i> <span data-translate="sport_movies">Cine</span></button>
+          <button class="badge-tab" data-category="shopping" role="tab" aria-selected="false"><i class="fa-solid fa-cart-shopping"></i> <span data-translate="sport_shopping">Compras</span></button>
+          <button class="badge-tab" data-category="beach" role="tab" aria-selected="false"><i class="fa-solid fa-umbrella-beach"></i> <span data-translate="sport_beach">Playa</span></button>
+          <button class="badge-tab" data-category="coffee" role="tab" aria-selected="false"><i class="fa-solid fa-mug-hot"></i> <span data-translate="sport_coffee">Café</span></button>
         </div>
       </div>
 
@@ -150,6 +160,11 @@
                 <option value="basketball" data-translate="sport_basketball">Básquetbol</option>
                 <option value="hiking" data-translate="sport_hiking">Senderismo / Trekking</option>
                 <option value="tennis" data-translate="sport_tennis">Tenis / Pádel</option>
+                <option value="online" data-translate="sport_online">Jugar en línea</option>
+                <option value="movies" data-translate="sport_movies">Ir al Cine</option>
+                <option value="shopping" data-translate="sport_shopping">Ir de compras</option>
+                <option value="beach" data-translate="sport_beach">Ir a la playa</option>
+                <option value="coffee" data-translate="sport_coffee">Cafetería</option>
                 <option value="other" data-translate="sport_other">Otro</option>
               </select>
             </div>
@@ -173,30 +188,32 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="form-location" data-translate="form_location_label">Nombre del Lugar / Dirección</label>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <input type="text" id="form-location" class="input-fieldWithoutIcon" required placeholder="Ej: Complejo Deportivo Centenario, Parque Forestal..." data-translate-placeholder="form_location_placeholder" style="flex: 1; margin-bottom: 0;">
-              <button type="button" class="btn btn-outline-cyan" id="search-address-btn" style="padding: 0.7rem 1rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; height: 41px;">
-                <i class="fa-solid fa-magnifying-glass-location"></i>
-                <span data-translate="search_address_btn">Buscar</span>
-              </button>
+          <div id="location-fields-wrapper">
+            <div class="form-group">
+              <label for="form-location" data-translate="form_location_label">Nombre del Lugar / Dirección</label>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="text" id="form-location" class="input-fieldWithoutIcon" required placeholder="Ej: Complejo Deportivo Centenario, Parque Forestal..." data-translate-placeholder="form_location_placeholder" style="flex: 1; margin-bottom: 0;">
+                <button type="button" class="btn btn-outline-cyan" id="search-address-btn" style="padding: 0.7rem 1rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; height: 41px;">
+                  <i class="fa-solid fa-magnifying-glass-location"></i>
+                  <span data-translate="search_address_btn">Buscar</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- Interactive Map Picker inside Form -->
-          <div class="form-group">
-            <label data-translate="form_map_label">Selecciona la Ubicación en el Mapa</label>
-            <div class="form-map-container">
-              <div id="picker-map"></div>
+            <!-- Interactive Map Picker inside Form -->
+            <div class="form-group">
+              <label data-translate="form_map_label">Selecciona la Ubicación en el Mapa</label>
+              <div class="form-map-container">
+                <div id="picker-map"></div>
+              </div>
+              <div class="map-helper-text">
+                <i class="fa-solid fa-map-pin"></i>
+                <span id="map-selection-status" data-translate="form_map_helper">Haz clic en el mapa para marcar el punto de encuentro</span>
+              </div>
+              <!-- Coordinates inputs -->
+              <input type="hidden" id="form-lat" required>
+              <input type="hidden" id="form-lng" required>
             </div>
-            <div class="map-helper-text">
-              <i class="fa-solid fa-map-pin"></i>
-              <span id="map-selection-status" data-translate="form_map_helper">Haz clic en el mapa para marcar el punto de encuentro</span>
-            </div>
-            <!-- Coordinates inputs -->
-            <input type="hidden" id="form-lat" required>
-            <input type="hidden" id="form-lng" required>
           </div>
 
           <div class="form-group">
