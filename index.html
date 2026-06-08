@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- SEO Tags -->
+  <title>SportSquad - Encuentra tu Compañero de Deportes</title>
+  <meta name="description" content="¿No tienes con quién entrenar o jugar? Encuentra compañeros para correr, ir al gimnasio, jugar fútbol, ciclismo, senderismo o compartir membresías. ¡Crea o únete a actividades deportivas locales!">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- FontAwesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+
+  <!-- Header Section -->
+  <header>
+    <a href="#" class="logo" id="logo-link">
+      <div class="logo-icon">S</div>
+      <h1 class="logo-text">Sport<span>Squad</span></h1>
+    </a>
+    
+    <div class="nav-actions">
+      <!-- Language Toggle Switch -->
+      <div class="lang-toggle" role="group" aria-label="Language Selector">
+        <button type="button" class="lang-btn active" id="lang-es-btn">ES</button>
+        <button type="button" class="lang-btn" id="lang-en-btn">EN</button>
+      </div>
+      
+      <!-- Theme Toggle Button -->
+      <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle Theme" type="button">
+        <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
+      </button>
+      
+      <!-- Create Activity Trigger Button -->
+      <button class="btn btn-primary" id="open-create-modal-btn">
+        <i class="fa-solid fa-plus"></i>
+        <span data-translate="nav_create_btn">Publicar Actividad</span>
+      </button>
+      
+      <!-- User Profile Badge -->
+      <div class="user-nav-badge" id="nav-profile-btn" role="button" tabindex="0">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" alt="Avatar" id="nav-user-avatar">
+        <span id="nav-user-name">Invitado</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Grid -->
+  <main class="main-container">
+    
+    <!-- Feed Panel (Left Column) -->
+    <section class="feed-panel" id="feed-panel-view">
+      
+      <!-- Welcome Hero Banner -->
+      <div class="hero">
+        <h2 data-translate="hero_title">¿Falta un jugador? ¿Buscas partner?</h2>
+        <p data-translate="hero_desc">No entrenes solo. Encuentra personas para correr, compartir una membresía de gimnasio, jugar al fútbol, básquetbol, hacer ciclismo o senderismo cerca de ti.</p>
+        <button class="btn btn-outline-cyan" id="hero-create-btn">
+          <i class="fa-solid fa-bullhorn"></i>
+          <span data-translate="hero_cta">¡Publica tu actividad ahora!</span>
+        </button>
+      </div>
+
+      <!-- Filters & Search Bar Card -->
+      <div class="filter-bar">
+        <div class="filter-row">
+          <div class="search-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" class="input-field" id="search-input" placeholder="Buscar actividad o lugar..." data-translate-placeholder="search_placeholder">
+          </div>
+          
+          <select id="sport-filter" aria-label="Filter by Sport">
+            <option value="all" data-translate="filter_all_sports">Todos los Deportes</option>
+            <option value="running" data-translate="sport_running">Running / Correr</option>
+            <option value="soccer" data-translate="sport_soccer">Fútbol</option>
+            <option value="gym" data-translate="sport_gym">Gimnasio / Gym Share</option>
+            <option value="cycling" data-translate="sport_cycling">Ciclismo</option>
+            <option value="basketball" data-translate="sport_basketball">Básquetbol</option>
+            <option value="hiking" data-translate="sport_hiking">Senderismo / Trekking</option>
+            <option value="tennis" data-translate="sport_tennis">Tenis / Pádel</option>
+            <option value="other" data-translate="sport_other">Otro</option>
+          </select>
+        </div>
+
+        <!-- Quick Tabs for Categories -->
+        <div class="category-badges" id="category-tabs" role="tablist">
+          <button class="badge-tab active" data-category="all" role="tab" aria-selected="true" data-translate="filter_all">Todos</button>
+          <button class="badge-tab" data-category="running" role="tab" aria-selected="false"><i class="fa-solid fa-person-running"></i> <span data-translate="sport_running">Running</span></button>
+          <button class="badge-tab" data-category="soccer" role="tab" aria-selected="false"><i class="fa-solid fa-futbol"></i> <span data-translate="sport_soccer">Fútbol</span></button>
+          <button class="badge-tab" data-category="gym" role="tab" aria-selected="false"><i class="fa-solid fa-dumbbell"></i> <span data-translate="sport_gym">Gym</span></button>
+          <button class="badge-tab" data-category="cycling" role="tab" aria-selected="false"><i class="fa-solid fa-bicycle"></i> <span data-translate="sport_cycling">Bici</span></button>
+          <button class="badge-tab" data-category="basketball" role="tab" aria-selected="false"><i class="fa-solid fa-basketball"></i> <span data-translate="sport_basketball">Básquet</span></button>
+          <button class="badge-tab" data-category="hiking" role="tab" aria-selected="false"><i class="fa-solid fa-mountain-sun"></i> <span data-translate="sport_hiking">Senderismo</span></button>
+        </div>
+      </div>
+
+      <!-- Feed Header (Results Counter) -->
+      <div class="activity-feed-header">
+        <h3>
+          <i class="fa-solid fa-calendar-days" style="color: var(--accent-orange)"></i>
+          <span data-translate="feed_heading">Actividades Disponibles</span>
+        </h3>
+        <span id="results-count" class="spots-status spots-open">0 activas</span>
+      </div>
+
+      <!-- Activity Feed List -->
+      <div class="activity-list" id="activity-list-container">
+        <!-- Activity Cards injected here by JS -->
+      </div>
+    </section>
+
+    <!-- Map Panel (Right Column) -->
+    <section class="map-panel" id="map-panel-view">
+      <div id="map" aria-label="Interactive map showing sports activities"></div>
+    </section>
+
+  </main>
+
+  <!-- Create Activity Modal Overlay -->
+  <div class="modal-overlay" id="create-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="create-modal-title" data-translate="create_modal_title">Publicar Actividad</h3>
+        <button class="close-modal" id="close-create-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="create-activity-form">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-title" data-translate="form_title_label">Título de la Actividad</label>
+              <input type="text" id="form-title" class="input-fieldWithoutIcon" required placeholder="Ej: Partido de fútbol 5 faltan 2" data-translate-placeholder="form_title_placeholder">
+            </div>
+            
+            <div class="form-group">
+              <label for="form-sport" data-translate="form_sport_label">Deporte / Categoría</label>
+              <select id="form-sport" required>
+                <option value="" disabled selected data-translate="form_select_sport_placeholder">Selecciona un deporte</option>
+                <option value="running" data-translate="sport_running">Running</option>
+                <option value="soccer" data-translate="sport_soccer">Fútbol</option>
+                <option value="gym" data-translate="sport_gym">Gimnasio</option>
+                <option value="cycling" data-translate="sport_cycling">Ciclismo</option>
+                <option value="basketball" data-translate="sport_basketball">Básquetbol</option>
+                <option value="hiking" data-translate="sport_hiking">Senderismo / Trekking</option>
+                <option value="tennis" data-translate="sport_tennis">Tenis / Pádel</option>
+                <option value="other" data-translate="sport_other">Otro</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Hidden Input for Custom Sport / Activity Name -->
+          <div class="form-group" id="custom-sport-container" style="display: none;">
+            <label for="form-custom-sport" data-translate="form_custom_sport_label">Nombre de Deporte/Actividad Personalizado</label>
+            <input type="text" id="form-custom-sport" class="input-fieldWithoutIcon" placeholder="Ej: Yoga en el parque, CrossFit, Natación..." data-translate-placeholder="form_custom_sport_placeholder">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-datetime" data-translate="form_datetime_label">Fecha y Hora</label>
+              <input type="datetime-local" id="form-datetime" class="input-fieldWithoutIcon" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="form-spots" data-translate="form_spots_label">Cupos Totales Necesitados / Disponibles</label>
+              <input type="number" id="form-spots" class="input-fieldWithoutIcon" min="1" max="100" required placeholder="Ej: 5" data-translate-placeholder="form_spots_placeholder">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="form-location" data-translate="form_location_label">Nombre del Lugar / Dirección</label>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="text" id="form-location" class="input-fieldWithoutIcon" required placeholder="Ej: Complejo Deportivo Centenario, Parque Forestal..." data-translate-placeholder="form_location_placeholder" style="flex: 1; margin-bottom: 0;">
+              <button type="button" class="btn btn-outline-cyan" id="search-address-btn" style="padding: 0.7rem 1rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; height: 41px;">
+                <i class="fa-solid fa-magnifying-glass-location"></i>
+                <span data-translate="search_address_btn">Buscar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Map Picker inside Form -->
+          <div class="form-group">
+            <label data-translate="form_map_label">Selecciona la Ubicación en el Mapa</label>
+            <div class="form-map-container">
+              <div id="picker-map"></div>
+            </div>
+            <div class="map-helper-text">
+              <i class="fa-solid fa-map-pin"></i>
+              <span id="map-selection-status" data-translate="form_map_helper">Haz clic en el mapa para marcar el punto de encuentro</span>
+            </div>
+            <!-- Coordinates inputs -->
+            <input type="hidden" id="form-lat" required>
+            <input type="hidden" id="form-lng" required>
+          </div>
+
+          <div class="form-group">
+            <label for="form-description" data-translate="form_desc_label">Descripción de la Actividad</label>
+            <textarea id="form-description" required placeholder="Detalla de qué trata la actividad, si deben llevar algún equipo, nivel de intensidad, o costo si corresponde..." data-translate-placeholder="form_desc_placeholder"></textarea>
+          </div>
+
+          <div class="form-row" style="margin-top: 1.5rem;">
+            <button type="button" class="btn btn-secondary" id="cancel-create-btn" data-translate="cancel">Cancelar</button>
+            <button type="submit" class="btn btn-primary" data-translate="publish">Publicar Actividad</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Detail Modal Overlay -->
+  <div class="modal-overlay" id="detail-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+    <div class="modal-container">
+      <div class="modal-header" style="border-bottom: none;">
+        <span class="sport-badge sport-other" id="detail-sport-badge">Running</span>
+        <button class="close-modal" id="close-detail-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding-top: 0;">
+        <h2 id="detail-modal-title" style="font-size: 1.8rem; margin-bottom: 1rem;">Título de la actividad</h2>
+        
+        <!-- Metadata summary -->
+        <div class="detail-meta-box">
+          <div class="meta-box-item">
+            <i class="fa-solid fa-calendar-days"></i>
+            <div>
+              <span data-translate="detail_when">Cuándo</span>
+              <p id="detail-datetime">Sábado, 12 de Junio a las 18:00</p>
+            </div>
+          </div>
+          
+          <div class="meta-box-item">
+            <i class="fa-solid fa-location-dot"></i>
+            <div>
+              <span data-translate="detail_where">Dónde</span>
+              <p id="detail-location-name">Parque General San Martín</p>
+            </div>
+          </div>
+          
+          <div class="meta-box-item">
+            <i class="fa-solid fa-users"></i>
+            <div>
+              <span data-translate="detail_spots">Cupos Disponibles</span>
+              <p id="detail-spots-count">3 de 5 libres</p>
+            </div>
+          </div>
+
+          <div class="meta-box-item">
+            <i class="fa-solid fa-circle-user"></i>
+            <div>
+              <span data-translate="detail_host">Organizador</span>
+              <p id="detail-host-name">Carlos Pérez</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <p class="detail-desc" id="detail-description">Descripción de la actividad...</p>
+        
+        <!-- Interaction Action (Join/Leave) -->
+        <div style="margin-bottom: 1rem;" id="action-join-container">
+          <button class="btn btn-primary" style="width: 100%; justify-content: center;" id="join-activity-btn">
+            <i class="fa-solid fa-user-plus"></i>
+            <span data-translate="join_activity">Inscribirse / Unirse a la Actividad</span>
+          </button>
+        </div>
+
+        <!-- Host Control Panel (Edit/Delete Activity) -->
+        <div style="margin-bottom: 1rem; display: none; gap: 0.5rem;" id="host-controls-container">
+          <button class="btn btn-outline-cyan" style="flex: 1; justify-content: center; font-weight: 600;" id="edit-activity-btn">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span data-translate="edit_activity">Editar Actividad</span>
+          </button>
+          <button class="btn" style="flex: 1; justify-content: center; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; font-weight: 600;" id="delete-activity-btn">
+            <i class="fa-solid fa-trash-can"></i>
+            <span data-translate="delete_activity">Eliminar Actividad</span>
+          </button>
+        </div>
+
+        <!-- Participants List -->
+        <div class="participants-section">
+          <h4>
+            <span data-translate="detail_participants">Participantes Inscritos</span>
+            <span id="detail-spots-text" style="font-size: 0.85rem; color: var(--text-muted);">2 personas</span>
+          </h4>
+          <div class="participants-list" id="detail-participants-list">
+            <!-- Chip list elements injected by JS -->
+          </div>
+        </div>
+
+        <!-- Comments / Discussions section -->
+        <div class="comments-section">
+          <h4 data-translate="detail_comments">Preguntas y Comentarios</h4>
+          <form id="comment-submit-form" class="comment-form">
+            <input type="text" class="comment-input" id="comment-input-field" required placeholder="Escribe tu pregunta o comentario..." data-translate-placeholder="comment_placeholder">
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1rem;">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
+          <div class="comments-list" id="detail-comments-container">
+            <!-- Comment items injected by JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Settings Modal Overlay -->
+  <div class="modal-overlay" id="profile-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+    <div class="modal-container" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 id="profile-modal-title" data-translate="profile_modal_title">Ajustes de Perfil</h3>
+        <button class="close-modal" id="close-profile-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="profile-edit-form">
+          
+          <div class="profile-avatar-selector">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" class="profile-current-avatar" id="profile-current-avatar-img" alt="Avatar actual">
+            <div>
+              <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-bottom:0.4rem;" data-translate="profile_choose_avatar">Elige tu Avatar</label>
+              <div class="avatar-options" id="avatar-options-list">
+                <!-- Javascript will inject 4-5 options of avatars -->
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="profile-name-input" data-translate="profile_name_label">Tu Nombre</label>
+            <input type="text" id="profile-name-input" class="input-fieldWithoutIcon" required placeholder="Ej: Pedro Gómez">
+          </div>
+
+          <div class="form-group">
+            <label for="profile-email-input" data-translate="profile_email_label">Correo de Contacto</label>
+            <input type="email" id="profile-email-input" class="input-fieldWithoutIcon" required placeholder="Ej: pedro@correo.com">
+          </div>
+
+          <div class="form-group">
+            <label for="profile-phone-input" data-translate="profile_phone_label">Teléfono de Contacto (Opcional)</label>
+            <input type="text" id="profile-phone-input" class="input-fieldWithoutIcon" placeholder="Ej: +54 9 11 1234-5678">
+          </div>
+
+          <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+            <button type="button" class="btn btn-secondary" style="flex:1" id="cancel-profile-btn" data-translate="cancel">Cancelar</button>
+            <button type="submit" class="btn btn-primary" style="flex:1" data-translate="save">Guardar Cambios</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
+
+  <!-- Floating Mobile View Toggle Button -->
+  <div class="mobile-toggle-wrapper" id="mobile-view-toggle">
+    <button class="btn btn-primary" id="mobile-toggle-btn" style="border-radius: 30px; padding: 0.75rem 1.5rem; font-weight: 700; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); font-size: 0.95rem;">
+      <i class="fa-solid fa-map" id="mobile-toggle-icon"></i>
+      <span id="mobile-toggle-text" data-translate="mobile_show_map">Ver Mapa</span>
+    </button>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- App JavaScript Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
