@@ -417,9 +417,14 @@ const elements = {
   themeToggleIcon: document.getElementById("theme-toggle-icon")
 };
 
+// --- SUPABASE CONFIGURATION ---
+const SUPABASE_URL = 'https://uhgxtxvsizhwwqxwefka.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_mO7h1oLgEWExZkQ5GzoyDw_qDoyWF8G';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // --- INITIALIZE APPLICATION ---
-function initApp() {
-  // Load State from LocalStorage
+async function initApp() {
+  // Load State from LocalStorage (theme, lang, profile)
   loadLocalStorage();
 
   // Apply active theme to DOM
@@ -430,6 +435,12 @@ function initApp() {
 
   // Initialize Maps
   initMainMap();
+
+  // Fetch activities from Supabase
+  await fetchActivities();
+  
+  // Setup Supabase Realtime listeners
+  setupRealtime();
 
   // Render Activities list & map markers
   renderActivities();
@@ -454,15 +465,6 @@ function loadLocalStorage() {
     localStorage.setItem("sportsquad_profile", JSON.stringify(appState.profile));
   }
 
-  // Load activities
-  const savedActivities = localStorage.getItem("sportsquad_activities");
-  if (savedActivities) {
-    appState.activities = JSON.parse(savedActivities);
-  } else {
-    appState.activities = defaultActivities;
-    localStorage.setItem("sportsquad_activities", JSON.stringify(defaultActivities));
-  }
-
   // Load language
   const savedLang = localStorage.getItem("sportsquad_lang");
   if (savedLang) {
@@ -483,8 +485,79 @@ function saveProfileToStorage() {
   updateProfileNavUI();
 }
 
+// --- SUPABASE DATA FUNCTIONS ---
+async function fetchActivities() {
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      // Map DB snake_case to JS camelCase
+      appState.activities = data.map(act => ({
+        id: act.id,
+        hostName: act.host_name,
+        hostEmail: act.host_email,
+        hostPhone: act.host_phone,
+        hostAvatar: act.host_avatar,
+        sport: act.sport,
+        customSport: act.custom_sport || "",
+        title: act.title,
+        datetime: act.datetime,
+        spotsTotal: act.spots_total,
+        spotsJoined: act.spots_joined || [],
+        locationName: act.location_name,
+        lat: act.lat,
+        lng: act.lng,
+        description: act.description,
+        comments: act.comments || []
+      }));
+    } else {
+      // If db is empty, initialize with default activities to have some demo data
+      for (const act of defaultActivities) {
+        await supabase.from('activities').insert({
+          host_name: act.hostName,
+          host_email: act.hostEmail,
+          host_phone: act.hostPhone,
+          host_avatar: act.hostAvatar,
+          sport: act.sport,
+          custom_sport: act.customSport,
+          title: act.title,
+          datetime: act.datetime,
+          spots_total: act.spotsTotal,
+          spots_joined: act.spotsJoined,
+          location_name: act.locationName,
+          lat: act.lat,
+          lng: act.lng,
+          description: act.description,
+          comments: act.comments
+        });
+      }
+      await fetchActivities(); // Fetch again after inserting defaults
+    }
+  } catch (err) {
+    console.error("Error fetching activities:", err);
+    // Fallback to local defaults if supabase fails
+    appState.activities = defaultActivities;
+  }
+}
+
+function setupRealtime() {
+  supabase
+    .channel('public:activities')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, payload => {
+      console.log('Realtime change received!', payload);
+      fetchActivities().then(() => renderActivities());
+    })
+    .subscribe();
+}
+
 function saveActivitiesToStorage() {
-  localStorage.setItem("sportsquad_activities", JSON.stringify(appState.activities));
+  // Obsolete function. Left empty so we don't break sync calls, 
+  // but actual saves are handled via async Supabase calls now.
 }
 
 // --- TOAST NOTIFICATIONS ---
@@ -1452,7 +1525,7 @@ async function handleAddressGeocode() {
   }
 }
 
-function handleCreateActivity(e) {
+async function handleCreateActivity(e) {
   e.preventDefault();
   
   const lat = parseFloat(elements.formLat.value);
@@ -1466,73 +1539,98 @@ function handleCreateActivity(e) {
 
   const hostProfile = appState.profile;
 
+  // We disable the submit button temporarily while saving to cloud
+  const submitBtn = elements.createActivityForm.querySelector("button[type='submit']");
+  const originalBtnText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Guardando...";
+
   if (appState.isEditing) {
     const actIndex = appState.activities.findIndex(a => a.id === appState.editingActivityId);
     if (actIndex !== -1) {
       const act = appState.activities[actIndex];
-      act.title = document.getElementById("form-title").value;
-      act.sport = elements.formSport.value;
-      act.customSport = elements.formCustomSport.value;
-      act.datetime = document.getElementById("form-datetime").value;
-      act.spotsTotal = parseInt(document.getElementById("form-spots").value);
-      act.locationName = elements.formLocation.value;
-      act.lat = lat;
-      act.lng = lng;
-      act.description = document.getElementById("form-description").value;
-
+      const newSpotsTotal = parseInt(document.getElementById("form-spots").value);
+      
+      let updatedSpotsJoined = act.spotsJoined;
       // Adjust spotsJoined if spotsTotal decreased
-      if (act.spotsJoined.length > act.spotsTotal) {
-        act.spotsJoined = act.spotsJoined.slice(0, act.spotsTotal);
+      if (updatedSpotsJoined.length > newSpotsTotal) {
+        updatedSpotsJoined = updatedSpotsJoined.slice(0, newSpotsTotal);
       }
       
-      saveActivitiesToStorage();
-      elements.createModal.classList.remove("active");
-      
-      appState.isEditing = false;
-      appState.editingActivityId = null;
+      // Send Update to Supabase
+      const { error } = await supabase.from('activities').update({
+        title: document.getElementById("form-title").value,
+        sport: elements.formSport.value,
+        custom_sport: elements.formCustomSport.value,
+        datetime: document.getElementById("form-datetime").value,
+        spots_total: newSpotsTotal,
+        location_name: elements.formLocation.value,
+        lat: lat,
+        lng: lng,
+        description: document.getElementById("form-description").value,
+        spots_joined: updatedSpotsJoined
+      }).eq('id', appState.editingActivityId);
 
-      renderActivities();
-      showToast("alert_edited");
-      appState.mainMap.setView([lat, lng], 14);
+      if (error) {
+        console.error("Error updating activity:", error);
+        alert("Error al actualizar. Inténtalo de nuevo.");
+      } else {
+        elements.createModal.classList.remove("active");
+        appState.isEditing = false;
+        appState.editingActivityId = null;
+        showToast("alert_edited");
+        appState.mainMap.setView([lat, lng], 14);
+        
+        // Let Realtime trigger the update, or we manually trigger it
+        await fetchActivities();
+        renderActivities();
+      }
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalBtnText;
       return;
     }
   }
 
-  // Build new activity object
-  const newActivity = {
-    id: "act-" + Date.now(),
-    hostName: hostProfile.name,
-    hostEmail: hostProfile.email,
-    hostPhone: hostProfile.phone || "",
-    hostAvatar: hostProfile.avatar,
+  // Build new activity object for Supabase
+  const newActivityInsert = {
+    host_name: hostProfile.name,
+    host_email: hostProfile.email,
+    host_phone: hostProfile.phone || "",
+    host_avatar: hostProfile.avatar,
     sport: elements.formSport.value,
-    customSport: elements.formCustomSport.value,
+    custom_sport: elements.formCustomSport.value,
     title: document.getElementById("form-title").value,
     datetime: document.getElementById("form-datetime").value,
-    spotsTotal: parseInt(document.getElementById("form-spots").value),
-    spotsJoined: [
+    spots_total: parseInt(document.getElementById("form-spots").value),
+    spots_joined: [
       { name: hostProfile.name, email: hostProfile.email, avatar: hostProfile.avatar }
     ],
-    locationName: elements.formLocation.value,
+    location_name: elements.formLocation.value,
     lat: lat,
     lng: lng,
     description: document.getElementById("form-description").value,
     comments: []
   };
 
-  // Add to state and save
-  appState.activities.unshift(newActivity);
-  saveActivitiesToStorage();
+  // Insert to Supabase
+  const { data, error } = await supabase.from('activities').insert(newActivityInsert).select();
 
-  // Close Modal
-  elements.createModal.classList.remove("active");
-
-  // Refresh view
-  renderActivities();
-  showToast("alert_created");
-
-  // Center main map on new activity
-  appState.mainMap.setView([lat, lng], 14);
+  if (error) {
+    console.error("Error creating activity:", error);
+    alert("Hubo un error al publicar la actividad.");
+  } else {
+    // Close Modal
+    elements.createModal.classList.remove("active");
+    showToast("alert_created");
+    // Center main map on new activity
+    appState.mainMap.setView([lat, lng], 14);
+    
+    await fetchActivities();
+    renderActivities();
+  }
+  
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalBtnText;
 }
 
 // --- ACTIVITY DETAIL VIEW & SIGN UPS ---
@@ -1667,12 +1765,14 @@ function handleJoinToggle() {
   toggleJoinStatus(appState.selectedActivityId);
 }
 
-function toggleJoinStatus(id) {
+async function toggleJoinStatus(id) {
   const activity = appState.activities.find(a => a.id === id);
   if (!activity) return;
 
   const myProfile = appState.profile;
   const index = activity.spotsJoined.findIndex(p => p.email === myProfile.email);
+  
+  let newSpotsJoined = [...activity.spotsJoined];
 
   if (index !== -1) {
     // If you are the creator, you cannot leave your own event!
@@ -1685,29 +1785,45 @@ function toggleJoinStatus(id) {
     }
 
     // Leave
-    activity.spotsJoined.splice(index, 1);
-    saveActivitiesToStorage();
-    showToast("alert_left");
+    newSpotsJoined.splice(index, 1);
   } else {
     // Join
     const openSpots = activity.spotsTotal - activity.spotsJoined.length;
     if (openSpots <= 0) return;
 
-    activity.spotsJoined.push({
+    newSpotsJoined.push({
       name: myProfile.name,
       email: myProfile.email,
       avatar: myProfile.avatar
     });
-    saveActivitiesToStorage();
-    showToast("alert_joined");
   }
 
-  // Update Detail UI if open, and Feed
-  renderActivities();
-  
-  if (elements.detailModal.classList.contains("active") && appState.selectedActivityId === id) {
-    renderParticipantsList(activity);
-    updateJoinButtonState(activity);
+  // Disable button while processing
+  elements.joinActivityBtn.disabled = true;
+
+  // Send to Supabase
+  const { error } = await supabase.from('activities').update({ spots_joined: newSpotsJoined }).eq('id', id);
+
+  if (error) {
+    console.error("Error joining/leaving activity:", error);
+    alert("Error de conexión. Inténtalo de nuevo.");
+    elements.joinActivityBtn.disabled = false;
+  } else {
+    if (index !== -1) {
+      showToast("alert_left");
+    } else {
+      showToast("alert_joined");
+    }
+    
+    // Refresh live
+    await fetchActivities();
+    renderActivities();
+    
+    if (elements.detailModal.classList.contains("active") && appState.selectedActivityId === id) {
+      const updatedActivity = appState.activities.find(a => a.id === id);
+      renderParticipantsList(updatedActivity);
+      updateJoinButtonState(updatedActivity);
+    }
   }
 }
 
@@ -1754,7 +1870,7 @@ function renderCommentsList(activity) {
   elements.detailCommentsContainer.scrollTop = elements.detailCommentsContainer.scrollHeight;
 }
 
-function handleCommentSubmit(e) {
+async function handleCommentSubmit(e) {
   e.preventDefault();
   
   const text = elements.commentInputField.value.trim();
@@ -1772,13 +1888,29 @@ function handleCommentSubmit(e) {
     timestamp: new Date().toISOString()
   };
 
-  if (!activity.comments) activity.comments = [];
-  activity.comments.push(newComment);
-  saveActivitiesToStorage();
+  const currentComments = activity.comments ? [...activity.comments] : [];
+  currentComments.push(newComment);
 
-  elements.commentInputField.value = "";
-  renderCommentsList(activity);
-  showToast("alert_comment_added");
+  // Disable input while sending
+  elements.commentInputField.disabled = true;
+
+  // Send to Supabase
+  const { error } = await supabase.from('activities').update({ comments: currentComments }).eq('id', activity.id);
+
+  if (error) {
+    console.error("Error submitting comment:", error);
+    alert("No se pudo enviar el comentario. Inténtalo de nuevo.");
+  } else {
+    elements.commentInputField.value = "";
+    showToast("alert_comment_added");
+    
+    // Refresh live
+    await fetchActivities();
+    const updatedActivity = appState.activities.find(a => a.id === appState.selectedActivityId);
+    renderCommentsList(updatedActivity);
+  }
+  
+  elements.commentInputField.disabled = false;
 }
 
 // --- PROFILE SECTION ---
@@ -1829,19 +1961,28 @@ function handleProfileSave(e) {
   showToast("alert_profile_saved");
 }
 
-function handleDeleteActivity() {
+async function handleDeleteActivity() {
   const confirmMsg = appState.currentLang === 'es'
     ? "¿Estás seguro de que deseas eliminar esta actividad? Esta acción no se puede deshacer."
     : "Are you sure you want to delete this activity? This action cannot be undone.";
   
   if (confirm(confirmMsg)) {
     const id = appState.selectedActivityId;
-    appState.activities = appState.activities.filter(a => a.id !== id);
-    saveActivitiesToStorage();
     
-    elements.detailModal.classList.remove("active");
-    renderActivities();
-    showToast("alert_deleted");
+    // Send Delete to Supabase
+    const { error } = await supabase.from('activities').delete().eq('id', id);
+    
+    if (error) {
+      console.error("Error deleting activity:", error);
+      alert("Hubo un problema eliminando la actividad.");
+    } else {
+      elements.detailModal.classList.remove("active");
+      showToast("alert_deleted");
+      
+      // Refresh live
+      await fetchActivities();
+      renderActivities();
+    }
   }
 }
 
