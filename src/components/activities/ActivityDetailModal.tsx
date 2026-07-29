@@ -22,7 +22,7 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
   const isJoined = user && activity.participantIds?.includes(user.id);
   const favorite = isFavorite(activity.id);
 
-  // Fetch chats on open
+  // Fetch and subscribe to chats
   useEffect(() => {
     const fetchChats = async () => {
       const { data } = await supabase
@@ -33,6 +33,30 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
       if (data) setComments(data);
     };
     fetchChats();
+
+    const channel = supabase
+      .channel(`chat_${activity.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_chats', filter: `activity_id=eq.${activity.id}` },
+        (payload) => {
+          setComments((current) => {
+            // Avoid duplicate if we just sent it (though it might still show twice if we append optimism, so let's only append if it's not already there by id, wait, we don't have id in local, so let's just append. Actually, we should check for exact same text and user, but easiest is to not do optimistic append in handleAddComment if realtime is fast enough. But for now we just append, assuming we can just fetch or deduplicate).
+            // Let's do simple deduplication by checking if the last message is exactly the same
+            const isDuplicate = current.length > 0 && 
+                                current[current.length - 1].user_id === payload.new.user_id &&
+                                current[current.length - 1].text === payload.new.text &&
+                                new Date(payload.new.created_at).getTime() - new Date(current[current.length - 1].created_at).getTime() < 2000;
+            if (isDuplicate) return current;
+            return [...current, payload.new];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activity.id]);
 
   const handleShare = () => {

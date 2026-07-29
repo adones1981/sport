@@ -63,8 +63,27 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
     };
     
     if (initialData && initialData.id) {
-      // Editing existing (mock for now, or you could do a supabase update)
-      updateActivity(initialData.id, data);
+      const { data: updatedDbData, error } = await supabase
+        .from('activities')
+        .update(data)
+        .eq('id', initialData.id)
+        .select();
+        
+      if (error) {
+        console.error('Error updating activity:', error);
+        alert(`Error al guardar en la nube: ${error.message}`);
+      } else {
+        // Formatear para el store local (camelCase)
+        updateActivity(initialData.id, {
+          ...data,
+          locationName: data.location_name,
+          exactAddress: data.exact_address,
+          organizerNote: data.organizer_note,
+          maxParticipants: data.max_participants,
+          creatorId: data.creator_id
+        });
+        alert('¡Cambios guardados con éxito!');
+      }
       setIsSubmitting(false);
       onClose();
     } else {
@@ -120,17 +139,33 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
            </div>
 
            <div className="mb-4">
-             <label className="block text-sm font-medium mb-1">Categoría</label>
-             <select value={category} onChange={e => setCategory(e.target.value)} className="w-full border p-3 rounded-lg dark:bg-slate-800 dark:border-slate-700 bg-transparent outline-none">
-               <option value="Fútbol">Fútbol</option>
-               <option value="Tenis">Tenis</option>
-               <option value="Running">Running</option>
-               <option value="Gym">Gym</option>
-               <option value="Café">Café</option>
-               <option value="Comer">Comer / Restaurante</option>
-               <option value="Cine">Cine</option>
-               <option value="Paseo">Paseo</option>
-             </select>
+             <label className="block text-sm font-medium mb-2">Categoría</label>
+             <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
+               {[
+                 { name: 'Fútbol', emoji: '⚽' },
+                 { name: 'Tenis', emoji: '🎾' },
+                 { name: 'Pádel', emoji: '🎾' },
+                 { name: 'Básquet', emoji: '🏀' },
+                 { name: 'Ciclismo', emoji: '🚴' },
+                 { name: 'Running', emoji: '🏃' },
+                 { name: 'Gym', emoji: '🏋️' },
+                 { name: 'Café', emoji: '☕' },
+                 { name: 'Comer', emoji: '🍽️' },
+                 { name: 'Cerveza', emoji: '🍺' },
+                 { name: 'Cine', emoji: '🎬' },
+                 { name: 'Paseo', emoji: '🚶' }
+               ].map(cat => (
+                 <button
+                   key={cat.name}
+                   type="button"
+                   onClick={() => setCategory(cat.name)}
+                   className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${category === cat.name ? 'bg-green-100 border-green-500 shadow-sm dark:bg-green-900/40 dark:border-green-500 scale-105' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                 >
+                   <span className="text-xl mb-1">{cat.emoji}</span>
+                   <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300">{cat.name}</span>
+                 </button>
+               ))}
+             </div>
            </div>
 
            <div className="mb-4 relative">

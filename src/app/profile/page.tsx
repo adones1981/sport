@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActivities } from '@/hooks/useActivities';
-import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star } from 'lucide-react';
+import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star, Share2 } from 'lucide-react';
 import { CreateActivityModal } from '@/components/activities/CreateActivityModal';
 import { ActivityDetailModal } from '@/components/activities/ActivityDetailModal';
 import { AdminModal } from '@/components/activities/AdminModal';
@@ -48,6 +48,55 @@ function ProfileContent() {
   }, [user]);
 
   const [activitySubTab, setActivitySubTab] = useState<'upcoming' | 'created' | 'history'>('upcoming');
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  // Dynamic logic for activities
+  const now = new Date();
+  const upcomingActivities = activities.filter(a => a.participants?.includes(user?.name) && a.creatorId !== user?.id && new Date(`${a.date}T${a.time}`) >= now);
+  const createdActivities = activities.filter(a => a.creatorId === user?.id);
+  const historyActivities = activities.filter(a => a.participants?.includes(user?.name) && new Date(`${a.date}T${a.time}`) < now);
+
+  useEffect(() => {
+    if (user && createdActivities.length > 0) {
+      const fetchUnread = async () => {
+        const { data } = await supabase
+          .from('activity_chats')
+          .select('activity_id, created_at, user_id')
+          .in('activity_id', createdActivities.map(a => a.id))
+          .order('created_at', { ascending: false });
+
+        if (data) {
+          const counts: Record<string, number> = {};
+          data.forEach(chat => {
+            if (chat.user_id === user.id) return;
+            const lastViewed = localStorage.getItem(`lastViewedChat_${chat.activity_id}`);
+            if (!lastViewed || new Date(chat.created_at) > new Date(lastViewed)) {
+              counts[chat.activity_id] = (counts[chat.activity_id] || 0) + 1;
+            }
+          });
+          setUnreadCounts(counts);
+        }
+      };
+      fetchUnread();
+    }
+  }, [user, activities.length]);
+
+  const openChat = (act: any) => {
+    localStorage.setItem(`lastViewedChat_${act.id}`, new Date().toISOString());
+    setUnreadCounts(prev => ({ ...prev, [act.id]: 0 }));
+    setChattingActivity(act);
+  };
+  
+  const handleShare = (act: any) => {
+    const url = `${window.location.origin}`; // Assuming homepage handles routing or just sharing the app
+    const text = `¡Únete a mi actividad "${act.title}" en SportSquad!`;
+    if (navigator.share) {
+      navigator.share({ title: 'SportSquad', text, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(`${text} ${url}`);
+      alert('¡Enlace copiado al portapapeles!');
+    }
+  };
   
   const sportsList = ['Fútbol', 'Tenis', 'Pádel', 'Básquet', 'Ciclismo', 'Running', 'Gym', 'Café', 'Comer', 'Cine', 'Paseo'];
   
@@ -106,11 +155,7 @@ function ProfileContent() {
     }
   };
 
-  // Dynamic logic for activities
-  const now = new Date();
-  const upcomingActivities = activities.filter(a => a.participants?.includes(user?.name) && a.creatorId !== user?.id && new Date(`${a.date}T${a.time}`) >= now);
-  const createdActivities = activities.filter(a => a.creatorId === user?.id);
-  const historyActivities = activities.filter(a => a.participants?.includes(user?.name) && new Date(`${a.date}T${a.time}`) < now);
+
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white pb-20">
@@ -256,14 +301,26 @@ function ProfileContent() {
                   <div className="space-y-4">
                     {createdActivities.map(act => (
                       <div key={act.id} className="border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-blue-50/50 dark:bg-blue-900/10 hover:shadow-md transition-shadow">
-                         <div>
+                         <div className="flex-1">
                            <span className="text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded mb-2 inline-block border border-blue-200 dark:border-blue-800/50">Organizador</span>
                            <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-white">{act.title}</h3>
-                           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-2 flex items-center gap-1.5"><Users size={16} className="text-yellow-500"/> Cupos: {act.participants?.length || 0} de {act.maxParticipants} Confirmados</p>
+                           
+                           <div className="flex flex-col gap-1.5 mt-2">
+                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500"/> {new Date(act.date).toLocaleDateString()} a las {act.time}</p>
+                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={14} className="text-red-500"/> {act.locationName}</p>
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-1.5"><Users size={16} className="text-yellow-500"/> Cupos: {act.participants?.length || 0} de {act.maxParticipants} Confirmados</p>
+                           </div>
                          </div>
-                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0">
-                           <button onClick={() => setAdminActivity(act)} className="flex-1 bg-slate-900 dark:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"><Users size={16}/> Administrar</button>
-                           <button onClick={() => setEditingActivity(act)} className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"><Edit3 size={16} className="text-blue-500"/> Editar</button>
+                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap justify-end">
+                           <button onClick={() => handleShare(act)} className="flex-1 sm:flex-none bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"><Share2 size={16}/> Compartir</button>
+                           <button onClick={() => openChat(act)} className="flex-1 sm:flex-none relative bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                             <MessageCircle size={16} className="text-green-500"/> Chat
+                             {unreadCounts[act.id] > 0 && (
+                               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">{unreadCounts[act.id]}</span>
+                             )}
+                           </button>
+                           <button onClick={() => setAdminActivity(act)} className="flex-1 sm:flex-none bg-slate-900 dark:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"><Users size={16}/> Admin</button>
+                           <button onClick={() => setEditingActivity(act)} className="flex-1 sm:flex-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"><Edit3 size={16} className="text-blue-500"/> Editar</button>
                          </div>
                       </div>
                     ))}

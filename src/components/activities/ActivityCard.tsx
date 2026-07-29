@@ -5,7 +5,7 @@ export const getCategoryEmoji = (category: string) => {
   const map: Record<string, string> = {
     'Fútbol': '⚽', 'Tenis': '🎾', 'Pádel': '🎾', 'Básquet': '🏀',
     'Ciclismo': '🚴', 'Running': '🏃', 'Gym': '🏋️', 'Café': '☕',
-    'Comer': '🍽️', 'Cine': '🎬', 'Paseo': '🚶'
+    'Comer': '🍽️', 'Cerveza': '🍺', 'Cine': '🎬', 'Paseo': '🚶'
   };
   return map[category] || '📍';
 };
