@@ -5,6 +5,7 @@ import { getCategoryEmoji } from './ActivityCard';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useActivityStore } from '@/store/useActivityStore';
+import { PublicProfileModal } from '../profile/PublicProfileModal';
 
 export function ActivityDetailModal({ activity, onClose }: { activity: any, onClose: () => void }) {
   const { user, setIsLoginModalOpen, setPendingActivityId, joinActivity, leaveActivity } = useAuthStore();
@@ -18,6 +19,7 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
   const [isLeaving, setIsLeaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showPublicProfile, setShowPublicProfile] = useState(false);
 
   const isJoined = user && activity.participantIds?.includes(user.id);
   const favorite = isFavorite(activity.id);
@@ -151,12 +153,22 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
                 <p className="font-semibold">{activity.participants?.length || 0} unidos de {activity.maxParticipants} máx.</p>
                 {activity.participants && activity.participants.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {activity.participants.map((p: string, idx: number) => (
-                      <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-xs pr-2.5 pl-1 py-1 rounded-full font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm">
-                        <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(p)}&background=random&size=24`} alt={p} className="w-5 h-5 rounded-full" />
-                        {p}
-                      </span>
-                    ))}
+                    {activity.participants.map((p: string, idx: number) => {
+                      const isCreator = idx === 0 || activity.creatorId === activity.participantIds?.[idx];
+                      return (
+                        <button 
+                          key={idx} 
+                          onClick={() => {
+                            if (isCreator) setShowPublicProfile(true);
+                          }}
+                          className={`bg-slate-100 dark:bg-slate-800 text-xs pr-2.5 pl-1 py-1 rounded-full font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-sm transition-all ${isCreator ? 'cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 ring-2 ring-green-500/50 hover:scale-105' : 'cursor-default'}`}
+                        >
+                          <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(p)}&background=random&size=24`} alt={p} className="w-5 h-5 rounded-full" />
+                          {p}
+                          {isCreator && <span className="ml-1 text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full shadow-sm">Organizador</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -303,6 +315,14 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
           )}
         </div>
       </div>
+      
+      {showPublicProfile && (
+        <PublicProfileModal 
+          creatorId={activity.creatorId || activity.participantIds?.[0]} 
+          creatorName={activity.participants?.[0] || 'Organizador'} 
+          onClose={() => setShowPublicProfile(false)} 
+        />
+      )}
     </div>
   );
 }

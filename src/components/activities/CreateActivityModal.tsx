@@ -1,5 +1,5 @@
 import { X, Search, MapPin, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useActivityStore } from '@/store/useActivityStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +20,20 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
     } : null
   );
   
+  useEffect(() => {
+    if (!initialData && navigator.geolocation && !selectedPlace) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setSelectedPlace({
+          display_name: 'Ubicación Actual',
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude
+        });
+      }, () => {
+        // Fallback or handle error silently
+      });
+    }
+  }, [initialData]);
+
   const [title, setTitle] = useState(initialData?.title || '');
   const [category, setCategory] = useState(initialData?.category || 'Fútbol');
   const [date, setDate] = useState(initialData?.date || '');
@@ -55,8 +69,8 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
       location_name: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
       exact_address: selectedPlace?.display_name || '',
       organizer_note: organizerNote,
-      lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489 + (Math.random() - 0.5) * 0.01,
-      lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693 + (Math.random() - 0.5) * 0.01,
+      lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489,
+      lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693,
       max_participants: 10,
       creator_id: user?.id,
       rating: 5.0

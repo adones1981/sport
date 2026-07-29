@@ -105,8 +105,14 @@ export default function Home() {
                  onCreateAtLocation={(loc) => handleCreateOpen(loc)}
                />
                {activities.length === 0 && !searchedLocation && (
-                 <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-6 py-3 rounded-xl shadow-xl z-[400] font-bold text-sm border border-slate-200 dark:border-slate-700 pointer-events-none text-center">
-                   No hay actividades aquí.<br/><span className="font-normal text-slate-500">¡Sé el primero en crear una!</span>
+                 <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-6 py-4 rounded-xl shadow-xl z-[400] text-sm border border-slate-200 dark:border-slate-700 text-center flex flex-col items-center gap-3">
+                   <div>
+                     <span className="font-bold">No hay actividades aquí.</span><br/>
+                     <span className="text-slate-500">¡Sé el primero en crear una!</span>
+                   </div>
+                   <button onClick={() => handleCreateOpen()} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold w-full transition-colors shadow-sm">
+                     Crear Actividad
+                   </button>
                  </div>
                )}
               <div className="absolute bottom-6 right-6 flex flex-col gap-3 z-[400]">
@@ -126,7 +132,7 @@ export default function Home() {
             </div>
           ) : activities.length === 0 ? (
             <div className="flex-1 flex flex-col overflow-y-auto">
-               <EmptyState />
+               <EmptyState onCreate={() => handleCreateOpen()} />
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 content-start">
