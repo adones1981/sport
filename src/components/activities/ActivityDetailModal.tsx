@@ -61,6 +61,8 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
     if (!error) {
       setComments([...comments, { ...newChat, created_at: new Date().toISOString() }]);
       setNewComment('');
+    } else {
+      alert(`Error al guardar chat: ${error.message || JSON.stringify(error)}`);
     }
     setIsSending(false);
   };

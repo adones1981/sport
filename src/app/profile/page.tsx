@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActivities } from '@/hooks/useActivities';
@@ -11,7 +11,7 @@ import { AdminModal } from '@/components/activities/AdminModal';
 import { RatingModal } from '@/components/activities/RatingModal';
 import { supabase } from '@/lib/supabase';
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { activities } = useActivities({ category: 'all' });
@@ -22,8 +22,9 @@ export default function ProfilePage() {
   const [adminActivity, setAdminActivity] = useState<any>(null);
   const [ratingActivityObj, setRatingActivityObj] = useState<any>(null);
   const [ratedActivityIds, setRatedActivityIds] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'edit' | 'activities'>('edit');
   const searchParams = useSearchParams();
+  const initialTab = searchParams?.get('tab') === 'activities' ? 'activities' : 'edit';
+  const [activeTab, setActiveTab] = useState<'edit' | 'activities'>(initialTab);
   
   useEffect(() => {
     if (searchParams) {
@@ -319,5 +320,13 @@ export default function ProfilePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-500">Cargando perfil...</div>}>
+      <ProfileContent />
+    </React.Suspense>
   );
 }

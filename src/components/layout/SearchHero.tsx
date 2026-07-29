@@ -1,6 +1,7 @@
-import { Activity, LogIn, Bike, Dumbbell, Coffee, Utensils, Music, Footprints, Ticket, User, Settings, LogOut, ChevronDown, MapPin, Search } from 'lucide-react';
+import { Activity, LogIn, Bike, Dumbbell, Coffee, Utensils, Music, Footprints, Ticket, User, Settings, LogOut, ChevronDown, MapPin, Search, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useActivityStore } from '@/store/useActivityStore';
 import { useState } from 'react';
 import { LoginModal } from '../auth/LoginModal';
 
@@ -11,13 +12,34 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
   const [places, setPlaces] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
+  const { activities } = useActivityStore();
+  
   const handleSearch = async () => {
-    if(!query.trim()) return;
+    if(!query.trim()) {
+      setPlaces([]);
+      return;
+    }
     setIsSearching(true);
     try {
+      // Buscar actividades locales primero
+      const localMatches = activities.filter(a => 
+        a.title.toLowerCase().includes(query.toLowerCase()) || 
+        a.category.toLowerCase().includes(query.toLowerCase()) ||
+        a.locationName.toLowerCase().includes(query.toLowerCase())
+      ).map(a => ({
+        place_id: `act_${a.id}`,
+        display_name: `🏃 ${a.title} - ${a.category} (${a.locationName})`,
+        lat: a.lat,
+        lon: a.lng,
+        isActivity: true,
+        activity: a
+      })).slice(0, 3); // Max 3 actividades locales
+
+      // Buscar lugares
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=cl`);
       const data = await res.json();
-      setPlaces(data);
+      
+      setPlaces([...localMatches, ...data]);
     } catch(e) {
       console.error(e);
     }
@@ -110,11 +132,22 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
             <input 
               type="text" 
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => {
+                setQuery(e.target.value);
+                if (!e.target.value) setPlaces([]);
+              }}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              placeholder="Buscar parque, zona..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-900 text-white placeholder-gray-400 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-xl text-base transition-all"
+              placeholder="Buscar parque, actividad, futbol..."
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-900 text-white placeholder-gray-400 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-xl text-base transition-all"
             />
+            {query && (
+              <button 
+                onClick={() => { setQuery(''); setPlaces([]); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                <XCircle size={18} />
+              </button>
+            )}
             {places.length > 0 && (
                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-2xl overflow-y-auto max-h-60 text-slate-800 dark:text-white">
                  {places.map(place => (
