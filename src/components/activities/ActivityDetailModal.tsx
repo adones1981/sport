@@ -67,7 +67,7 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[85dvh]">
         <div className="relative h-40 shrink-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
           <span className="text-6xl absolute opacity-20">
             {getCategoryEmoji(activity.category)}

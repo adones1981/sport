@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActivities } from '@/hooks/useActivities';
 import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star } from 'lucide-react';
 import { CreateActivityModal } from '@/components/activities/CreateActivityModal';
@@ -23,15 +23,17 @@ export default function ProfilePage() {
   const [ratingActivityObj, setRatingActivityObj] = useState<any>(null);
   const [ratedActivityIds, setRatedActivityIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'edit' | 'activities'>('edit');
+  const searchParams = useSearchParams();
   
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const search = new URLSearchParams(window.location.search);
-      if (search.get('tab') === 'activities') {
+    if (searchParams) {
+      if (searchParams.get('tab') === 'activities') {
         setActiveTab('activities');
+      } else {
+        setActiveTab('edit');
       }
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {
@@ -117,8 +119,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold tracking-tight">Mi Dashboard</h1>
           </div>
-          <button onClick={() => router.push('/')} className="px-4 py-2 bg-white text-green-700 rounded-lg font-bold hover:bg-green-50 transition-colors flex items-center gap-2 shadow-sm">
-            <ArrowLeft size={20} /> <span className="hidden sm:inline">Volver al Mapa</span>
+          <button onClick={() => router.push('/')} className="px-3 sm:px-4 py-2 bg-white text-green-700 rounded-lg font-bold hover:bg-green-50 transition-colors flex items-center gap-2 shadow-sm text-sm sm:text-base">
+            <ArrowLeft size={20} /> <span>Volver al Mapa</span>
           </button>
         </div>
       </div>
