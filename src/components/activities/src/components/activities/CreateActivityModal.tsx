@@ -63,8 +63,17 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
     };
     
     if (initialData && initialData.id) {
-      // Editing existing (mock for now, or you could do a supabase update)
-      updateActivity(initialData.id, data);
+      const { error } = await supabase
+        .from('activities')
+        .update(data)
+        .eq('id', initialData.id);
+        
+      if (error) {
+        console.error('Error updating activity:', error);
+        alert('Hubo un error al guardar los cambios.');
+      } else {
+        updateActivity(initialData.id, data);
+      }
       setIsSubmitting(false);
       onClose();
     } else {
