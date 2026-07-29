@@ -186,6 +186,7 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
                   type="text" 
                   value={newComment}
                   onChange={e => setNewComment(e.target.value)}
+                  onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)}
                   placeholder="Escribe un comentario..." 
                   className="flex-1 border border-slate-200 p-2.5 rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700 bg-transparent focus:ring-2 focus:ring-green-400 outline-none"
                 />
