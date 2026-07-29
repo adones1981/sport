@@ -63,10 +63,11 @@ export default function ProfilePage() {
     }));
   };
   
-  // Mock logic for activities
-  const upcomingActivities = activities.filter(a => [1, 4].includes(a.id));
-  const createdActivities = activities.filter(a => [2].includes(a.id));
+  // Dynamic logic for activities
+  const upcomingActivities = activities.filter(a => a.participants?.includes(user?.name) && a.creatorId !== user?.id);
+  const createdActivities = activities.filter(a => a.creatorId === user?.id);
   const historyActivities = [
+    // This could also be dynamically filtered based on date in the future
     { id: 99, title: 'Partido Fútbol 5', date: '2026-07-20', time: '20:00', locationName: 'Club Providencia', category: 'Fútbol', status: 'completed' }
   ];
 

@@ -1,6 +1,15 @@
 import { MapPin, Calendar, Clock, Users, Star, Heart } from 'lucide-react';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 
+export const getCategoryEmoji = (category: string) => {
+  const map: Record<string, string> = {
+    'Fútbol': '⚽', 'Tenis': '🎾', 'Pádel': '🎾', 'Básquet': '🏀',
+    'Ciclismo': '🚴', 'Running': '🏃', 'Gym': '🏋️', 'Café': '☕',
+    'Comer': '🍽️', 'Cine': '🎬', 'Paseo': '🚶'
+  };
+  return map[category] || '📍';
+};
+
 export function ActivityCard({ activity }: { activity: any }) {
   const { isFavorite, toggleFavorite } = useFavoritesStore();
   const favorite = isFavorite(activity.id);
@@ -9,10 +18,10 @@ export function ActivityCard({ activity }: { activity: any }) {
     <div className="bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 relative">
       <div className="h-32 bg-green-100 dark:bg-green-900/30 relative flex items-center justify-center overflow-hidden">
         <span className="text-4xl absolute opacity-20">
-          {activity.category === 'Fútbol' ? '⚽' : activity.category === 'Running' ? '🏃' : activity.category === 'Tenis' ? '🎾' : '📍'}
+          {getCategoryEmoji(activity.category)}
         </span>
-        <div className="absolute bottom-3 left-3 bg-white dark:bg-slate-800 px-3 py-1 rounded-full text-xs font-bold text-green-700 dark:text-green-400 shadow-sm">
-          {activity.category}
+        <div className="absolute bottom-3 left-3 bg-white dark:bg-slate-800 px-3 py-1 rounded-full text-xs font-bold text-green-700 dark:text-green-400 shadow-sm flex items-center gap-1.5">
+          <span>{getCategoryEmoji(activity.category)}</span> {activity.category}
         </div>
         
         <button 

@@ -1,18 +1,36 @@
-import { X, MapPin, Users, Calendar, UserPlus, Share2, MessageSquare, Send, Heart, Star, Info } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, Star, MessageSquare, Send, Heart, Share2, Info, UserPlus, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
-import { useState } from 'react';
+import { getCategoryEmoji } from './ActivityCard';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useActivityStore } from '@/store/useActivityStore';
 
 export function ActivityDetailModal({ activity, onClose }: { activity: any, onClose: () => void }) {
   const { user, setIsLoginModalOpen, setPendingActivityId } = useAuthStore();
   const { isFavorite, toggleFavorite } = useFavoritesStore();
-  const [comments, setComments] = useState<{user: string, text: string}[]>([
-    { user: 'Admin', text: '¡Bienvenidos a esta actividad!' }
-  ]);
+  const fetchActivities = useActivityStore(state => state.fetchActivities);
+  
+  const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [rating, setRating] = useState<number | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const favorite = isFavorite(activity.id);
+
+  // Fetch chats on open
+  useEffect(() => {
+    const fetchChats = async () => {
+      const { data } = await supabase
+        .from('activity_chats')
+        .select('*')
+        .eq('activity_id', activity.id)
+        .order('created_at', { ascending: true });
+      if (data) setComments(data);
+    };
+    fetchChats();
+  }, [activity.id]);
 
   const handleShare = async () => {
     try {
@@ -31,17 +49,33 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
     }
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !user) return;
-    setComments([...comments, { user: user.name, text: newComment }]);
-    setNewComment('');
+    setIsSending(true);
+    
+    const newChat = {
+      activity_id: activity.id,
+      user_id: user.id,
+      user_name: user.name,
+      text: newComment
+    };
+    
+    const { error } = await supabase.from('activity_chats').insert([newChat]);
+    if (!error) {
+      setComments([...comments, { ...newChat, created_at: new Date().toISOString() }]);
+      setNewComment('');
+    }
+    setIsSending(false);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
       <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh]">
         <div className="relative h-40 shrink-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+          <span className="text-6xl absolute opacity-20">
+            {getCategoryEmoji(activity.category)}
+          </span>
           <button onClick={onClose} className="absolute right-4 top-4 text-white/80 hover:text-white bg-black/20 p-1.5 rounded-full backdrop-blur-md transition-colors">
             <X size={20} />
           </button>
@@ -55,7 +89,7 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
           </button>
 
           <div className="absolute -bottom-6 left-6 bg-white dark:bg-slate-800 px-4 py-2 rounded-xl shadow-lg font-bold text-green-600 dark:text-green-400 border border-slate-100 dark:border-slate-700 flex items-center gap-2">
-            {activity.category}
+            <span>{getCategoryEmoji(activity.category)}</span> {activity.category}
             {activity.rating && (
               <span className="flex items-center gap-1 text-yellow-500 text-sm ml-2 font-medium bg-yellow-50 dark:bg-yellow-900/30 px-2 py-0.5 rounded-md">
                 <Star size={14} fill="currentColor" /> {activity.rating}
@@ -80,7 +114,6 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
               <Calendar className="text-blue-500 shrink-0" />
               <p className="font-semibold">{new Date(activity.date).toLocaleDateString()} a las {activity.time}</p>
             </div>
-            
             <div className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
               <Users className="text-yellow-500 shrink-0 mt-0.5" />
               <div>
@@ -132,11 +165,14 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
             
             <div className="space-y-3 mb-4 max-h-40 overflow-y-auto pr-2">
               {comments.map((c, idx) => (
-                <div key={idx} className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg text-sm border border-slate-100 dark:border-slate-700">
-                  <span className="font-bold text-slate-900 dark:text-white block mb-0.5">{c.user}</span>
+                <div key={idx} className={`p-3 rounded-lg text-sm border ${c.user_id === user?.id ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/30' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
+                  <span className="font-bold text-slate-900 dark:text-white block mb-0.5">{c.user_name}</span>
                   <span className="text-slate-600 dark:text-slate-300">{c.text}</span>
                 </div>
               ))}
+              {comments.length === 0 && (
+                <p className="text-sm text-slate-500 italic text-center py-4">No hay mensajes aún. ¡Sé el primero en saludar!</p>
+              )}
             </div>
 
             {user ? (
@@ -148,8 +184,8 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
                   placeholder="Escribe un comentario..." 
                   className="flex-1 border border-slate-200 p-2.5 rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700 bg-transparent focus:ring-2 focus:ring-green-400 outline-none"
                 />
-                <button type="submit" className="bg-green-600 text-white p-2.5 rounded-lg hover:bg-green-500 transition-colors shadow-sm">
-                  <Send size={18} />
+                <button type="submit" disabled={isSending} className="bg-green-600 text-white p-2.5 rounded-lg hover:bg-green-500 transition-colors shadow-sm disabled:opacity-50">
+                  {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
               </form>
             ) : (
@@ -162,25 +198,38 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
 
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (!user) {
                 setPendingActivityId(activity.id);
                 setIsLoginModalOpen(true);
                 onClose();
               } else {
-                const store = useAuthStore.getState();
-                const success = store.joinActivity(activity.id);
-                if (!success) {
-                  alert('¡Has alcanzado el límite de 1 actividad para cuentas de invitado! Regístrate para unirte a más eventos.');
+                setIsJoining(true);
+                const { error } = await supabase.from('activity_participants').insert([{
+                  activity_id: activity.id,
+                  user_id: user.id,
+                  user_name: user.name
+                }]);
+                
+                if (error) {
+                  if (error.code === '23505') {
+                    alert('¡Ya estás unido a esta actividad!');
+                  } else {
+                    alert('Hubo un error al unirse.');
+                  }
                 } else {
                   alert('¡Te has unido con éxito!');
+                  // Refresh global activities to update participants count on the card
+                  fetchActivities();
                   onClose();
                 }
+                setIsJoining(false);
               }
             }}
-            className="w-full bg-slate-900 dark:bg-green-600 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 dark:hover:bg-green-500 transition-colors shadow-lg"
+            disabled={isJoining}
+            className="w-full bg-slate-900 dark:bg-green-600 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 dark:hover:bg-green-500 transition-colors shadow-lg disabled:opacity-70"
           >
-            {user ? (
+            {isJoining ? <Loader2 size={20} className="animate-spin" /> : user ? (
                <>
                  <UserPlus size={20} /> Unirme a la Actividad
                </>

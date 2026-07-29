@@ -1,9 +1,12 @@
-import { X, Search, MapPin } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Search, MapPin, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { useActivityStore } from '@/store/useActivityStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { supabase } from '@/lib/supabase';
 
 export function CreateActivityModal({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
   const { updateActivity, addActivity } = useActivityStore();
+  const { user } = useAuthStore();
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -17,6 +20,8 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
   const [category, setCategory] = useState(initialData?.category || 'Fútbol');
   const [date, setDate] = useState(initialData?.date || '');
   const [time, setTime] = useState(initialData?.time || '');
+  const [organizerNote, setOrganizerNote] = useState(initialData?.organizerNote || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchPlaces = async () => {
     if(!query.trim()) return;
@@ -31,29 +36,67 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
     setIsSearching(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!title || !date || !time) {
+      alert('Por favor completa el título, fecha y hora.');
+      return;
+    }
+    
+    setIsSubmitting(true);
     const data = {
       title,
       category,
       date,
       time,
-      locationName: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
-      exactAddress: selectedPlace?.display_name || '',
+      location_name: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
+      exact_address: selectedPlace?.display_name || '',
+      organizer_note: organizerNote,
+      lat: selectedPlace ? parseFloat(selectedPlace.lat) : null,
+      lng: selectedPlace ? parseFloat(selectedPlace.lon) : null,
+      max_participants: 10,
+      creator_id: user?.id,
+      rating: 5.0
     };
     
     if (initialData) {
+      // Editing existing (mock for now, or you could do a supabase update)
       updateActivity(initialData.id, data);
+      setIsSubmitting(false);
+      onClose();
     } else {
-      addActivity({
-        ...data,
-        participants: ['Organizador'],
-        maxParticipants: 10,
-        lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489,
-        lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693,
-        rating: 5.0,
-      });
+      const { data: newActivity, error } = await supabase
+        .from('activities')
+        .insert([data])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error creating activity:', error);
+        alert('Hubo un error al crear la actividad.');
+      } else {
+        // Al crearla, el creador también debería unirse como participante automáticamente
+        if (user) {
+           await supabase.from('activity_participants').insert([{
+             activity_id: newActivity.id,
+             user_id: user.id,
+             user_name: user.name
+           }]);
+        }
+        // Agregamos al store para verlo sin recargar
+        addActivity({
+          ...newActivity,
+          locationName: newActivity.location_name,
+          exactAddress: newActivity.exact_address,
+          organizerNote: newActivity.organizer_note,
+          maxParticipants: newActivity.max_participants,
+          creatorId: newActivity.creator_id,
+          participants: [user?.name || 'Organizador'],
+          participantIds: [user?.id]
+        });
+      }
+      setIsSubmitting(false);
+      onClose();
     }
-    onClose();
   };
 
   return (
@@ -135,10 +178,22 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
                <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full border p-3 rounded-lg dark:bg-slate-800 dark:border-slate-700 bg-transparent text-sm" />
              </div>
            </div>
+
+           <div className="mt-4">
+             <label className="block text-sm font-medium mb-1">Comentarios / Notas para los jugadores</label>
+             <textarea 
+               value={organizerNote} 
+               onChange={e => setOrganizerNote(e.target.value)} 
+               placeholder="Ej: Hay que llevar cuota de $3.000, nos juntamos en la entrada sur..." 
+               rows={3} 
+               className="w-full border p-3 rounded-lg dark:bg-slate-800 dark:border-slate-700 bg-transparent text-sm resize-none"
+             ></textarea>
+           </div>
         </div>
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-           <button onClick={handleSave} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">
+           <button onClick={handleSave} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2">
+             {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : null}
              {initialData ? 'Guardar Cambios' : 'Publicar Actividad en el Mapa'}
            </button>
         </div>
