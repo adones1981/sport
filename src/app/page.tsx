@@ -139,7 +139,7 @@ export default function Home() {
       </div>
 
       {selectedActivity && <ActivityDetailModal activity={selectedActivity} onClose={() => setSelectedActivity(null)} />}
-      {isCreateOpen && <CreateActivityModal initialData={createInitialData} onClose={() => setIsCreateOpen(false)} />}
+      {isCreateOpen && <CreateActivityModal initialData={createInitialData} onClose={() => { setIsCreateOpen(false); setSearchedLocation(null); }} />}
     </main>
   );
 }

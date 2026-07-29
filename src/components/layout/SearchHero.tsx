@@ -75,9 +75,9 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Mi Cuenta</p>
                      <p className="text-sm font-medium truncate">{user.name}</p>
                    </div>
-                   <Link href="/profile" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><Activity size={16} className="text-blue-500"/> Mis Actividades</Link>
-                   <Link href="/profile" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><User size={16} className="text-green-500"/> Perfil</Link>
-                   <button className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><Settings size={16} className="text-slate-500"/> Configuración</button>
+                   <Link href="/profile?tab=activities" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><Activity size={16} className="text-blue-500"/> Mis Actividades</Link>
+                   <Link href="/profile?tab=edit" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><User size={16} className="text-green-500"/> Perfil</Link>
+                   <Link href="/profile?tab=edit" onClick={() => setDropdownOpen(false)} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium transition-colors"><Settings size={16} className="text-slate-500"/> Configuración</Link>
                    <div className="border-t border-slate-100 dark:border-slate-700 mt-1 pt-1">
                      <button onClick={() => { logout(); setDropdownOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-3 text-sm font-bold transition-colors"><LogOut size={16}/> Cerrar Sesión</button>
                    </div>

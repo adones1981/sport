@@ -153,6 +153,13 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
         iconAnchor: [20, 20]
       });
 
+      // Find nearby activities (within ~100 meters, roughly 0.001 degrees)
+      const nearbyActivities = activities.filter(act => {
+        const dLat = Math.abs(act.lat - lat);
+        const dLng = Math.abs(act.lng - lon);
+        return dLat < 0.001 && dLng < 0.001;
+      });
+
       const popupHtml = `
         <div class="bg-slate-900 text-white rounded-xl shadow-2xl border border-blue-500/30 w-64 overflow-hidden pointer-events-auto">
           <div class="p-4 text-center">
@@ -161,8 +168,22 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
             </div>
             <h3 class="font-bold text-sm mb-1">${isUserLocation ? 'Tu Ubicación' : 'Ubicación Buscada'}</h3>
             <p class="text-xs text-slate-400 mb-4 line-clamp-2">${display_name}</p>
+            
+            ${nearbyActivities.length > 0 ? `
+              <div class="bg-slate-800/50 rounded-lg p-2 mb-3 text-left">
+                <p class="text-xs font-bold text-green-400 mb-2">¡Hay ${nearbyActivities.length} actividad(es) aquí!</p>
+                ${nearbyActivities.slice(0, 2).map((act, i) => `
+                  <button id="btn-search-join-${i}" class="w-full text-left bg-slate-800 hover:bg-slate-700 p-2 rounded border border-slate-700 mb-1 transition-colors">
+                    <p class="text-xs font-bold truncate">${act.title}</p>
+                    <p class="text-[10px] text-slate-400 truncate">${act.category} • ${act.time}</p>
+                  </button>
+                `).join('')}
+                ${nearbyActivities.length > 2 ? `<p class="text-[10px] text-slate-400 text-center mt-1">Y ${nearbyActivities.length - 2} más...</p>` : ''}
+              </div>
+            ` : ''}
+
             <button id="btn-create-here" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg font-bold text-sm transition-colors shadow-lg flex items-center justify-center gap-2">
-              <span class="text-lg">+</span> Crear actividad aquí
+              <span class="text-lg">+</span> Crear otra actividad
             </button>
           </div>
         </div>
@@ -173,13 +194,23 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
         .addTo(mapRef.current);
         
       searchMarkerRef.current.on('popupopen', () => {
-         const btn = document.getElementById('btn-create-here');
-         if (btn) {
-           btn.onclick = () => {
+         const btnCreate = document.getElementById('btn-create-here');
+         if (btnCreate) {
+           btnCreate.onclick = () => {
              searchMarkerRef.current?.closePopup();
              if (onCreateAtLocation) onCreateAtLocation(searchedLocation);
            }
          }
+         
+         nearbyActivities.slice(0, 2).forEach((act, i) => {
+           const btnJoin = document.getElementById(`btn-search-join-${i}`);
+           if (btnJoin) {
+             btnJoin.onclick = () => {
+               searchMarkerRef.current?.closePopup();
+               if (onActivityClick) onActivityClick(act);
+             }
+           }
+         });
       });
       
       // Open popup automatically

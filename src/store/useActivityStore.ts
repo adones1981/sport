@@ -38,9 +38,13 @@ export const useActivityStore = create<ActivityStoreState>((set) => ({
       .order('created_at', { ascending: false });
       
     if (!error && data) {
-      // Transform relationships back to flat arrays for easy UI consumption
       const formattedData = data.map(act => ({
         ...act,
+        locationName: act.location_name,
+        exactAddress: act.exact_address,
+        organizerNote: act.organizer_note,
+        maxParticipants: act.max_participants,
+        creatorId: act.creator_id,
         participants: act.participants?.map((p: any) => p.user_name) || [],
         participantIds: act.participants?.map((p: any) => p.user_id) || []
       }));

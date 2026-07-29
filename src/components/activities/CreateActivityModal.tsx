@@ -13,7 +13,11 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
   
   // Set initial state based on initialData
   const [selectedPlace, setSelectedPlace] = useState<any>(
-    initialData ? { display_name: initialData.exactAddress || initialData.locationName } : null
+    initialData ? { 
+      display_name: initialData.exactAddress || initialData.locationName,
+      lat: initialData.lat,
+      lon: initialData.lon
+    } : null
   );
   
   const [title, setTitle] = useState(initialData?.title || '');
@@ -51,14 +55,14 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
       location_name: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
       exact_address: selectedPlace?.display_name || '',
       organizer_note: organizerNote,
-      lat: selectedPlace ? parseFloat(selectedPlace.lat) : null,
-      lng: selectedPlace ? parseFloat(selectedPlace.lon) : null,
+      lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489 + (Math.random() - 0.5) * 0.01,
+      lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693 + (Math.random() - 0.5) * 0.01,
       max_participants: 10,
       creator_id: user?.id,
       rating: 5.0
     };
     
-    if (initialData) {
+    if (initialData && initialData.id) {
       // Editing existing (mock for now, or you could do a supabase update)
       updateActivity(initialData.id, data);
       setIsSubmitting(false);

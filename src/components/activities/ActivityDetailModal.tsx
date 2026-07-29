@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useActivityStore } from '@/store/useActivityStore';
 
 export function ActivityDetailModal({ activity, onClose }: { activity: any, onClose: () => void }) {
-  const { user, setIsLoginModalOpen, setPendingActivityId } = useAuthStore();
+  const { user, setIsLoginModalOpen, setPendingActivityId, joinActivity, leaveActivity } = useAuthStore();
   const { isFavorite, toggleFavorite } = useFavoritesStore();
   const fetchActivities = useActivityStore(state => state.fetchActivities);
   
@@ -15,8 +15,11 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
   const [newComment, setNewComment] = useState('');
   const [rating, setRating] = useState<number | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
+  const isJoined = user && activity.participantIds?.includes(user.id);
   const favorite = isFavorite(activity.id);
 
   // Fetch chats on open
@@ -32,21 +35,14 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
     fetchChats();
   }, [activity.id]);
 
-  const handleShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `SportSquad: ${activity.title}`,
-          text: `¡Únete a mi actividad deportiva "${activity.title}" el ${new Date(activity.date).toLocaleDateString()} a las ${activity.time} en ${activity.locationName}!`,
-          url: window.location.href,
-        });
-      } else {
-        navigator.clipboard.writeText(`¡Únete a ${activity.title} en SportSquad!`);
-        alert('Enlace copiado al portapapeles');
-      }
-    } catch (err) {
-      console.log('Error sharing', err);
-    }
+  const handleShare = () => {
+    setShowShareMenu(!showShareMenu);
+  };
+
+  const shareLinks = {
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(`¡Únete a ${activity.title} en SportSquad! ${window.location.href}`)}`,
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`¡Únete a ${activity.title} en SportSquad!`)}&url=${encodeURIComponent(window.location.href)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -83,6 +79,15 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
           <button onClick={handleShare} className="absolute right-14 top-4 text-white/80 hover:text-white bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1 text-sm font-medium transition-colors">
             <Share2 size={16} /> Compartir
           </button>
+          
+          {showShareMenu && (
+            <div className="absolute right-4 top-14 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-2 flex flex-col gap-1 z-50">
+              <a href={shareLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="px-4 py-2 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 font-bold rounded-lg text-sm text-center">WhatsApp</a>
+              <a href={shareLinks.twitter} target="_blank" rel="noopener noreferrer" className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-500 font-bold rounded-lg text-sm text-center">Twitter</a>
+              <a href={shareLinks.facebook} target="_blank" rel="noopener noreferrer" className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-700 font-bold rounded-lg text-sm text-center">Facebook</a>
+              <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Enlace copiado'); setShowShareMenu(false); }} className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg text-sm text-center border-t border-slate-100 dark:border-slate-700 mt-1 pt-2">Copiar link</button>
+            </div>
+          )}
 
           <button onClick={() => toggleFavorite(activity.id)} className={`absolute left-4 top-4 bg-black/20 p-1.5 rounded-full backdrop-blur-md transition-colors ${favorite ? 'text-red-500' : 'text-white/80 hover:text-white'}`}>
             <Heart size={20} fill={favorite ? 'currentColor' : 'none'} />
@@ -197,46 +202,78 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
         </div>
 
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
-          <button 
-            onClick={async () => {
-              if (!user) {
-                setPendingActivityId(activity.id);
-                setIsLoginModalOpen(true);
-                onClose();
-              } else {
-                setIsJoining(true);
-                const { error } = await supabase.from('activity_participants').insert([{
-                  activity_id: activity.id,
-                  user_id: user.id,
-                  user_name: user.name
-                }]);
-                
+          {isJoined ? (
+            <button 
+              onClick={async () => {
+                setIsLeaving(true);
+                const { error } = await supabase.from('activity_participants').delete().match({ activity_id: activity.id, user_id: user.id });
                 if (error) {
-                  if (error.code === '23505') {
-                    alert('¡Ya estás unido a esta actividad!');
-                  } else {
-                    alert('Hubo un error al unirse.');
-                  }
+                  alert(`Error al salir: ${error.message || JSON.stringify(error)}`);
                 } else {
-                  alert('¡Te has unido con éxito!');
-                  // Refresh global activities to update participants count on the card
+                  if (user.type === 'guest') leaveActivity(activity.id);
+                  alert('Has salido de la actividad.');
                   fetchActivities();
                   onClose();
                 }
-                setIsJoining(false);
-              }
-            }}
-            disabled={isJoining}
-            className="w-full bg-slate-900 dark:bg-green-600 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 dark:hover:bg-green-500 transition-colors shadow-lg disabled:opacity-70"
-          >
-            {isJoining ? <Loader2 size={20} className="animate-spin" /> : user ? (
-               <>
-                 <UserPlus size={20} /> Unirme a la Actividad
-               </>
-            ) : (
-               "Inicia sesión para Unirte"
-            )}
-          </button>
+                setIsLeaving(false);
+              }}
+              disabled={isLeaving}
+              className="w-full bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors shadow-sm disabled:opacity-70"
+            >
+              {isLeaving ? <Loader2 size={20} className="animate-spin" /> : <>Salir de la Actividad</>}
+            </button>
+          ) : (
+            <button 
+              onClick={async () => {
+                if (!user) {
+                  setPendingActivityId(activity.id);
+                  setIsLoginModalOpen(true);
+                  onClose();
+                } else {
+                  if (user.type === 'guest') {
+                    const canJoin = joinActivity(activity.id);
+                    if (!canJoin) {
+                      alert('Como invitado solo puedes unirte a 1 actividad. Debes salir de tu actividad actual o iniciar sesión con Google para unirte a otra.');
+                      return;
+                    }
+                  }
+                  
+                  setIsJoining(true);
+                  const { error } = await supabase.from('activity_participants').insert([{
+                    activity_id: activity.id,
+                    user_id: user.id,
+                    user_name: user.name
+                  }]);
+                  
+                  if (error) {
+                    if (error.code === '23505') {
+                      alert('¡Ya estás unido a esta actividad!');
+                    } else {
+                      alert(`Hubo un error al unirse. Detalle: ${error.message || JSON.stringify(error)}`);
+                      // If it failed, give the guest their token back
+                      if (user.type === 'guest') leaveActivity(activity.id);
+                    }
+                  } else {
+                    alert('¡Te has unido con éxito!');
+                    // Refresh global activities to update participants count on the card
+                    fetchActivities();
+                    onClose();
+                  }
+                  setIsJoining(false);
+                }
+              }}
+              disabled={isJoining}
+              className="w-full bg-slate-900 dark:bg-green-600 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 dark:hover:bg-green-500 transition-colors shadow-lg disabled:opacity-70"
+            >
+              {isJoining ? <Loader2 size={20} className="animate-spin" /> : user ? (
+                 <>
+                   <UserPlus size={20} /> Unirme a la Actividad
+                 </>
+              ) : (
+                 "Inicia sesión para Unirte"
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

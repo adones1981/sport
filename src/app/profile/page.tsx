@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useActivities } from '@/hooks/useActivities';
 import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star } from 'lucide-react';
 import { CreateActivityModal } from '@/components/activities/CreateActivityModal';
-import { ChatModal } from '@/components/activities/ChatModal';
+import { ActivityDetailModal } from '@/components/activities/ActivityDetailModal';
 import { AdminModal } from '@/components/activities/AdminModal';
+import { RatingModal } from '@/components/activities/RatingModal';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -18,8 +20,30 @@ export default function ProfilePage() {
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const [chattingActivity, setChattingActivity] = useState<any>(null);
   const [adminActivity, setAdminActivity] = useState<any>(null);
-  
+  const [ratingActivityObj, setRatingActivityObj] = useState<any>(null);
+  const [ratedActivityIds, setRatedActivityIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'edit' | 'activities'>('edit');
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const search = new URLSearchParams(window.location.search);
+      if (search.get('tab') === 'activities') {
+        setActiveTab('activities');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('activity_ratings')
+        .select('activity_id')
+        .eq('user_id', user.id)
+        .then(({ data }) => {
+          if (data) setRatedActivityIds(data.map(r => r.activity_id));
+        });
+    }
+  }, [user]);
+
   const [activitySubTab, setActivitySubTab] = useState<'upcoming' | 'created' | 'history'>('upcoming');
   
   const sportsList = ['Fútbol', 'Tenis', 'Pádel', 'Básquet', 'Ciclismo', 'Running', 'Gym', 'Café', 'Comer', 'Cine', 'Paseo'];
@@ -29,7 +53,8 @@ export default function ProfilePage() {
      phone: user?.phone || '',
      instagram: user?.instagram || '',
      bio: user?.bio || '',
-     favoriteSports: user?.favoriteSports || []
+     favoriteSports: user?.favoriteSports || [],
+     avatarUrl: user?.avatarUrl || ''
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -63,23 +88,38 @@ export default function ProfilePage() {
     }));
   };
   
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('La imagen es muy grande. Máximo 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, avatarUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Dynamic logic for activities
-  const upcomingActivities = activities.filter(a => a.participants?.includes(user?.name) && a.creatorId !== user?.id);
+  const now = new Date();
+  const upcomingActivities = activities.filter(a => a.participants?.includes(user?.name) && a.creatorId !== user?.id && new Date(`${a.date}T${a.time}`) >= now);
   const createdActivities = activities.filter(a => a.creatorId === user?.id);
-  const historyActivities = [
-    // This could also be dynamically filtered based on date in the future
-    { id: 99, title: 'Partido Fútbol 5', date: '2026-07-20', time: '20:00', locationName: 'Club Providencia', category: 'Fútbol', status: 'completed' }
-  ];
+  const historyActivities = activities.filter(a => a.participants?.includes(user?.name) && new Date(`${a.date}T${a.time}`) < now);
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white pb-20">
       {/* Header */}
       <div className="bg-green-600 text-white pt-6 pb-6 px-4 shadow-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <button onClick={() => router.back()} className="p-2 bg-black/20 rounded-full hover:bg-black/30 transition-colors">
-            <ArrowLeft size={24} />
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold tracking-tight">Mi Dashboard</h1>
+          </div>
+          <button onClick={() => router.push('/')} className="px-4 py-2 bg-white text-green-700 rounded-lg font-bold hover:bg-green-50 transition-colors flex items-center gap-2 shadow-sm">
+            <ArrowLeft size={20} /> <span className="hidden sm:inline">Volver al Mapa</span>
           </button>
-          <h1 className="text-2xl font-bold tracking-tight">Mi Dashboard</h1>
         </div>
       </div>
 
@@ -111,10 +151,11 @@ export default function ProfilePage() {
                 {/* Avatar Section */}
                 <div className="flex items-center gap-6 mb-8">
                   <div className="relative">
-                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=random&size=100`} className="w-24 h-24 rounded-full border-4 border-green-500 shadow-md" alt="Avatar" />
-                    <button className="absolute bottom-0 right-0 p-2 bg-slate-900 text-white rounded-full hover:bg-slate-700 transition-colors border-2 border-white dark:border-slate-800">
+                    <img src={formData.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=random&size=100`} className="w-24 h-24 rounded-full border-4 border-green-500 shadow-md object-cover" alt="Avatar" />
+                    <label className="absolute bottom-0 right-0 p-2 bg-slate-900 text-white rounded-full hover:bg-slate-700 transition-colors border-2 border-white dark:border-slate-800 cursor-pointer">
                       <Camera size={16} />
-                    </button>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </label>
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{formData.name}</h3>
@@ -229,14 +270,24 @@ export default function ProfilePage() {
                 {activitySubTab === 'history' && (
                   <div className="space-y-4">
                     {historyActivities.map(act => (
-                      <div key={act.id} className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-slate-50 dark:bg-slate-900/30 opacity-70 hover:opacity-100 transition-opacity">
+                      <div key={act.id} className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-slate-50 dark:bg-slate-900/30 opacity-80 hover:opacity-100 transition-opacity">
                          <div>
                            <h3 className="font-bold text-lg mb-1 text-slate-600 dark:text-slate-300">{act.title}</h3>
-                           <p className="text-sm text-slate-400 dark:text-slate-500 flex items-center gap-1.5"><CheckCircle size={14} className="text-green-500"/> {act.date} - Completada</p>
+                           <p className="text-sm text-slate-400 dark:text-slate-500 flex items-center gap-1.5"><CheckCircle size={14} className="text-green-500"/> {new Date(act.date).toLocaleDateString()} - Completada</p>
                          </div>
-                         <button className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border border-yellow-200 dark:border-yellow-900/50 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors w-full md:w-auto"><Star size={16}/> Calificar Evento</button>
+                         {ratedActivityIds.includes(act.id) ? (
+                           <button disabled className="bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 w-full md:w-auto"><CheckCircle size={16}/> Ya calificada</button>
+                         ) : (
+                           <button onClick={() => setRatingActivityObj(act)} className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border border-yellow-200 dark:border-yellow-900/50 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors w-full md:w-auto"><Star size={16}/> Calificar Evento</button>
+                         )}
                       </div>
                     ))}
+                    {historyActivities.length === 0 && (
+                      <div className="text-center py-10">
+                        <CheckCircle size={40} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-500">Aún no tienes actividades pasadas.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -253,8 +304,18 @@ export default function ProfilePage() {
         </div>
       )}
       {editingActivity && <CreateActivityModal initialData={editingActivity} onClose={() => setEditingActivity(null)} />}
-      {chattingActivity && <ChatModal activityTitle={chattingActivity.title} activityId={chattingActivity.id} onClose={() => setChattingActivity(null)} />}
+      {chattingActivity && <ActivityDetailModal activity={chattingActivity} onClose={() => setChattingActivity(null)} />}
       {adminActivity && <AdminModal activity={adminActivity} onClose={() => setAdminActivity(null)} />}
+      {ratingActivityObj && (
+        <RatingModal 
+          activity={ratingActivityObj} 
+          onClose={() => setRatingActivityObj(null)} 
+          onSaved={() => {
+            setRatedActivityIds([...ratedActivityIds, ratingActivityObj.id]);
+            setRatingActivityObj(null);
+          }} 
+        />
+      )}
     </div>
   );
 }
