@@ -18,6 +18,7 @@ interface AuthState {
   guestCreatedCount: number; // Track created activities for guests
   isLoginModalOpen: boolean;
   pendingActivityId: number | null;
+  isAuthLoading: boolean; // true while Supabase checks session on mount
   loginAsGuest: (name: string) => void;
   joinActivity: (activityId: number) => boolean; // Returns false if guest limit reached
   incrementGuestCreated: () => boolean;
@@ -37,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
   guestJoinedActivities: [],
   guestCreatedCount: 0,
   isLoginModalOpen: false,
+  isAuthLoading: true,
   pendingActivityId: null,
   
   loginAsGuest: (name) => set({ user: { id: crypto.randomUUID(), name, type: 'guest' }, guestJoinedActivities: [], guestCreatedCount: 0 }),
@@ -103,6 +105,8 @@ export const useAuthStore = create<AuthState>()(
           isLoginModalOpen: false 
         });
       }
+      // Auth check complete — hide the loading veil
+      set({ isAuthLoading: false });
     });
 
     // Listen for auth changes

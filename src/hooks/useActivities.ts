@@ -1,5 +1,6 @@
 import { useActivityStore } from '@/store/useActivityStore';
 import { useEffect } from 'react';
+import { CATEGORY_GROUPS } from '@/lib/categories';
 
 export function useActivities({ category, searchQuery = '', dateFilter = 'all' }: { category: string, searchQuery?: string, dateFilter?: string }) {
   const allActivities = useActivityStore(state => state.activities);
@@ -24,7 +25,16 @@ export function useActivities({ category, searchQuery = '', dateFilter = 'all' }
   let filtered = allActivities;
 
   if (category !== 'all') {
-    filtered = filtered.filter(act => act.category === category);
+    if (category.startsWith('group:')) {
+      const groupName = category.replace('group:', '');
+      const group = CATEGORY_GROUPS[groupName];
+      if (group) {
+        const categoryNamesInGroup = group.categories.map(c => c.name);
+        filtered = filtered.filter(act => categoryNamesInGroup.includes(act.category));
+      }
+    } else {
+      filtered = filtered.filter(act => act.category === category);
+    }
   }
 
   if (searchQuery.trim()) {

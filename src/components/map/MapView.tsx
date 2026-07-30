@@ -4,23 +4,9 @@ import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-const getCategoryEmoji = (category: string) => {
-  switch(category) {
-    case 'Fútbol': return '⚽';
-    case 'Tenis': return '🎾';
-    case 'Pádel': return '🎾';
-    case 'Básquet': return '🏀';
-    case 'Ciclismo': return '🚲';
-    case 'Running': return '🏃';
-    case 'Gym': return '🏋️';
-    case 'Completada': return '🌭';
-    case 'Café': return '☕';
-    case 'Comer': return '🍽️';
-    case 'Cine': return '🎬';
-    case 'Paseo': return '🌳';
-    default: return '📍';
-  }
-};
+import { getCategoryEmojiByName } from '@/lib/categories';
+
+const getCategoryEmoji = getCategoryEmojiByName;
 
 export function MapView({ activities, onActivityClick, selectedActivityId, searchedLocation, onCreateAtLocation }: { activities: any[], onActivityClick?: (act: any) => void, selectedActivityId?: number, searchedLocation?: any, onCreateAtLocation?: (loc: any) => void }) {
   const mapRef = useRef<L.Map | null>(null);

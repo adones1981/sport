@@ -2,14 +2,9 @@ import { MapPin, Calendar, Clock, Users, Star, Heart, Settings, MessageCircle, U
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export const getCategoryEmoji = (category: string) => {
-  const map: Record<string, string> = {
-    'Fútbol': '⚽', 'Tenis': '🎾', 'Pádel': '🎾', 'Básquet': '🏀',
-    'Ciclismo': '🚴', 'Running': '🏃', 'Gym': '🏋️', 'Café': '☕',
-    'Comer': '🍽️', 'Cerveza': '🍺', 'Cine': '🎬', 'Paseo': '🚶'
-  };
-  return map[category] || '📍';
-};
+import { getCategoryEmojiByName } from '@/lib/categories';
+
+export const getCategoryEmoji = getCategoryEmojiByName;
 
 export function ActivityCard({ activity, onClick }: { activity: any, onClick?: () => void }) {
   const { isFavorite, toggleFavorite } = useFavoritesStore();

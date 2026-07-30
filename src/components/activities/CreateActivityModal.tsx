@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useActivityStore } from '@/store/useActivityStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { supabase } from '@/lib/supabase';
+import { CATEGORY_GROUPS } from '@/lib/categories';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -231,31 +232,24 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
 
            <div className="mb-4">
              <label className="block text-sm font-medium mb-2">Categoría</label>
-             <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
-               {[
-                 { name: 'Fútbol', emoji: '⚽' },
-                 { name: 'Tenis', emoji: '🎾' },
-                 { name: 'Pádel', emoji: '🎾' },
-                 { name: 'Básquet', emoji: '🏀' },
-                 { name: 'Ciclismo', emoji: '🚴' },
-                 { name: 'Running', emoji: '🏃' },
-                 { name: 'Gym', emoji: '🏋️' },
-                 { name: 'Café', emoji: '☕' },
-                 { name: 'Comer', emoji: '🍽️' },
-                 { name: 'Cerveza', emoji: '🍺' },
-                 { name: 'Cine', emoji: '🎬' },
-                 { name: 'Completada', emoji: '🌭' },
-                 { name: 'Paseo', emoji: '🚶' }
-               ].map(cat => (
-                 <button
-                   key={cat.name}
-                   type="button"
-                   onClick={() => setCategory(cat.name)}
-                   className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${category === cat.name ? 'bg-green-100 border-green-500 shadow-sm dark:bg-green-900/40 dark:border-green-500 scale-105' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                 >
-                   <span className="text-xl mb-1">{cat.emoji}</span>
-                   <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300">{cat.name}</span>
-                 </button>
+             <div className="space-y-4">
+               {Object.values(CATEGORY_GROUPS).map(group => (
+                 <div key={group.name}>
+                   <p className="text-xs font-bold text-slate-500 mb-2 uppercase flex items-center gap-1"><span>{group.emoji}</span> {group.name}</p>
+                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                     {group.categories.map(cat => (
+                       <button
+                         key={cat.name}
+                         type="button"
+                         onClick={() => setCategory(cat.name)}
+                         className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${category === cat.name ? 'bg-green-100 border-green-500 shadow-sm dark:bg-green-900/40 dark:border-green-500 scale-105' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                       >
+                         <span className="text-xl mb-1">{cat.emoji}</span>
+                         <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 text-center">{cat.name}</span>
+                       </button>
+                     ))}
+                   </div>
+                 </div>
                ))}
              </div>
              

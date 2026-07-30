@@ -26,7 +26,7 @@ export default function Home() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createInitialData, setCreateInitialData] = useState<any>(null);
   
-  const { user, pendingActivityId, setPendingActivityId, initializeSupabaseAuth } = useAuthStore();
+  const { user, pendingActivityId, setPendingActivityId, initializeSupabaseAuth, isAuthLoading } = useAuthStore();
   const { activities, isLoading, error } = useActivities({ category: activeCategory, searchQuery, dateFilter });
 
   // Initialize Supabase Auth and Realtime listeners
@@ -48,7 +48,6 @@ export default function Home() {
                 display_name: "Tu Ubicación Actual",
                 isUserLocation: true
               });
-              // We do not set showSearchPrompt to true here so it doesn't block the screen
             },
             () => {}
           );
@@ -147,6 +146,15 @@ export default function Home() {
 
   return (
     <main className="h-[100dvh] max-h-[100dvh] bg-slate-50 dark:bg-slate-900 flex flex-col overflow-hidden">
+      {/* Auth loading veil — prevents flash of logged-out or empty state */}
+      {isAuthLoading && (
+        <div className="fixed inset-0 bg-white dark:bg-slate-950 flex items-center justify-center z-[99999]">
+          <div className="flex flex-col items-center gap-4">
+            <span className="text-5xl animate-bounce">⚽</span>
+            <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm animate-pulse">Cargando SportSquad...</p>
+          </div>
+        </div>
+      )}
       <div className="bg-slate-900 z-40 shadow-xl shrink-0">
         <SearchHero onLocationSelect={(loc) => { 
           if (loc.isActivity) {
@@ -182,7 +190,7 @@ export default function Home() {
                  searchedLocation={searchedLocation}
                  onCreateAtLocation={(loc) => handleCreateOpen(loc)}
                />
-               {activities.length === 0 && !searchedLocation && (
+               {activities.length === 0 && !isLoading && !searchedLocation && (
                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-6 py-4 rounded-xl shadow-xl z-[400] text-sm border border-slate-200 dark:border-slate-700 text-center flex flex-col items-center gap-3 w-11/12 max-w-sm">
                    <div>
                      <span className="font-bold">No hay actividades aquí.</span><br/>
@@ -220,7 +228,7 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          ) : activities.length === 0 ? (
+          ) : activities.length === 0 && !isLoading ? (
             <div className="flex-1 flex flex-col overflow-y-auto">
                <EmptyState onCreate={() => handleCreateOpen()} />
             </div>

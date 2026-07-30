@@ -24,10 +24,12 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
   return R * c;
 }
 
-export function ActivityDetailModal({ activity, onClose }: { activity: any, onClose: () => void }) {
+export function ActivityDetailModal({ activity: initialActivity, onClose }: { activity: any, onClose: () => void }) {
   const { user, setIsLoginModalOpen, setPendingActivityId, joinActivity, leaveActivity, decrementGuestCreated } = useAuthStore();
   const { isFavorite, toggleFavorite } = useFavoritesStore();
-  const fetchActivities = useActivityStore(state => state.fetchActivities);
+  const { activities, updateActivity, fetchActivities } = useActivityStore();
+  
+  const activity = activities.find(a => a.id === initialActivity.id) || initialActivity;
   
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -807,8 +809,13 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
                 } else {
                   if (user.type === 'guest') leaveActivity(activity.id);
                   alert('Has salido de la actividad.');
+                  updateActivity(activity.id, {
+                    participantIds: (activity.participantIds || []).filter((id: string) => id !== user.id),
+                    participantData: (activity.participantData || []).filter((p: any) => p.user_id !== user.id),
+                    participants: (activity.participants || []).filter((name: string) => name !== user.name)
+                  });
                   fetchActivities();
-                  onClose();
+                  // onClose(); // Comentado para que el usuario vea el cambio de botón instantáneo
                 }
                 setIsLeaving(false);
               }}
@@ -853,6 +860,11 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
                     }
                   } else {
                     alert('¡Te has unido con éxito!');
+                    updateActivity(activity.id, {
+                      participantIds: [...(activity.participantIds || []), user.id],
+                      participantData: [...(activity.participantData || []), { user_id: user.id, user_name: user.name, attendance_status: 'pending' }],
+                      participants: [...(activity.participants || []), user.name]
+                    });
                     fetchActivities();
                   }
                   setIsJoining(false);

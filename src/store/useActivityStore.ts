@@ -47,7 +47,7 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
   activities: [],
   chats: {},
   activityItems: {},
-  isLoading: false,
+  isLoading: true,
   isRealtimeSetup: false,
   
   setActivities: (activities) => set({ activities }),

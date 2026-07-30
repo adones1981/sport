@@ -1,8 +1,13 @@
 import { Map, List, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 
+import { CATEGORY_GROUPS } from '@/lib/categories';
+
 export function ActivityFilters({ activeCategory, onCategoryChange, viewMode, onViewModeChange, dateFilter, onDateFilterChange }: { activeCategory: string, onCategoryChange: (cat: string) => void, viewMode: 'list' | 'map', onViewModeChange: (mode: 'list' | 'map') => void, dateFilter?: string, onDateFilterChange?: (date: string) => void }) {
-  const categories = ['all', 'Fútbol', 'Tenis', 'Pádel', 'Básquet', 'Ciclismo', 'Running', 'Gym', 'Completada', 'Café', 'Comer', 'Cine', 'Paseo'];
+  const filterOptions = [
+    { id: 'all', label: 'Todos' },
+    ...Object.values(CATEGORY_GROUPS).map(g => ({ id: `group:${g.name}`, label: `${g.emoji} ${g.name}` }))
+  ];
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftScroll, setShowLeftScroll] = useState(false);
@@ -50,13 +55,13 @@ export function ActivityFilters({ activeCategory, onCategoryChange, viewMode, on
           <style dangerouslySetInnerHTML={{__html: `
             .hide-scrollbar::-webkit-scrollbar { display: none; }
           `}} />
-          {categories.map(cat => (
+          {filterOptions.map(option => (
             <button 
-              key={cat} 
-              onClick={() => onCategoryChange(cat)}
-              className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-colors cursor-pointer border border-transparent ${activeCategory === cat ? 'bg-green-600 text-white shadow-md' : 'bg-slate-200/50 text-slate-700 hover:bg-slate-300/80 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-700/50'}`}
+              key={option.id} 
+              onClick={() => onCategoryChange(option.id)}
+              className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-colors cursor-pointer border border-transparent ${activeCategory === option.id ? 'bg-green-600 text-white shadow-md' : 'bg-slate-200/50 text-slate-700 hover:bg-slate-300/80 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-700/50'}`}
             >
-              {cat === 'all' ? 'Todos' : cat}
+              {option.label}
             </button>
           ))}
         </div>
