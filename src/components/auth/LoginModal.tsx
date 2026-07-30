@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { X, Mail, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const FAMOUS_NAMES = ['Elon Musk', 'Bill Gates', 'Steve Jobs', 'Lionel Messi', 'Michael Jordan', 'Cristiano Ronaldo', 'Rafael Nadal'];
+const FAMOUS_NAMES = ['Cristiano Ronaldo', 'Elon Musk', 'Jeff Bezos', 'Bill Gates', 'Steve Jobs', 'Donald Trump', 'Michael Jordan', 'Rafael Nadal', 'Lebron James', 'Mark Zuckerberg', 'Warren Buffett', 'Usain Bolt'];
 
 export function LoginModal({ onClose }: { onClose: () => void }) {
   const { loginAsGuest } = useAuthStore();

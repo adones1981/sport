@@ -33,28 +33,19 @@ export function ActivityFilters({ activeCategory, onCategoryChange, viewMode, on
       {/* Scrollable Container Carousel */}
       <div className="relative flex-1 min-w-0 w-full flex items-center">
         {showLeftScroll && (
-          <button onClick={() => scrollByAmount(-150)} className="absolute left-0 z-20 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-md p-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors">
-            <ChevronLeft size={18} />
-          </button>
+          <div className="absolute left-0 z-20 flex items-center h-full pointer-events-none">
+            <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-white dark:from-slate-900 to-transparent" />
+            <button onClick={() => scrollByAmount(-150)} className="relative pointer-events-auto bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-md p-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors">
+              <ChevronLeft size={18} />
+            </button>
+          </div>
         )}
         
-        <div ref={scrollRef} onScroll={handleScroll} className="flex overflow-x-auto scrollbar-none whitespace-nowrap gap-2 w-full py-1 hide-scrollbar px-1" style={{ 
+        <div ref={scrollRef} onScroll={handleScroll} className="flex overflow-x-auto scrollbar-none whitespace-nowrap gap-2 w-full py-1 hide-scrollbar" style={{ 
           scrollbarWidth: 'none', 
           msOverflowStyle: 'none',
-          WebkitMaskImage: showLeftScroll && showRightScroll 
-            ? 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)'
-            : showLeftScroll 
-              ? 'linear-gradient(to right, transparent, black 20px)'
-              : showRightScroll
-                ? 'linear-gradient(to left, transparent, black 20px)'
-                : 'none',
-          maskImage: showLeftScroll && showRightScroll 
-            ? 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)'
-            : showLeftScroll 
-              ? 'linear-gradient(to right, transparent, black 20px)'
-              : showRightScroll
-                ? 'linear-gradient(to left, transparent, black 20px)'
-                : 'none'
+          paddingLeft: showLeftScroll ? '28px' : '4px',
+          paddingRight: showRightScroll ? '28px' : '4px',
         }}>
           <style dangerouslySetInnerHTML={{__html: `
             .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -71,9 +62,12 @@ export function ActivityFilters({ activeCategory, onCategoryChange, viewMode, on
         </div>
 
         {showRightScroll && (
-          <button onClick={() => scrollByAmount(150)} className="absolute right-0 z-20 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-md p-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors">
-            <ChevronRight size={18} />
-          </button>
+          <div className="absolute right-0 z-20 flex items-center h-full pointer-events-none">
+            <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-slate-900 to-transparent" />
+            <button onClick={() => scrollByAmount(150)} className="relative pointer-events-auto bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-md p-1 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors">
+              <ChevronRight size={18} />
+            </button>
+          </div>
         )}
       </div>
       
