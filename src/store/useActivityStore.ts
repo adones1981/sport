@@ -9,14 +9,35 @@ interface ChatMessage {
   user_id: string;
 }
 
+export interface ActivityItem {
+  id: string;
+  activity_id: string;
+  item_name: string;
+  created_at: string;
+  contributions: ItemContribution[];
+}
+
+export interface ItemContribution {
+  id: string;
+  item_id: string;
+  user_id: string;
+  user_name: string;
+}
+
 interface ActivityStoreState {
   activities: any[];
   chats: Record<string, ChatMessage[]>;
+  activityItems: Record<string, ActivityItem[]>;
   isLoading: boolean;
   isRealtimeSetup: boolean;
   setActivities: (activities: any[]) => void;
   setupRealtime: () => void;
   fetchActivities: () => Promise<void>;
+  fetchActivityItems: (activityId: string) => Promise<void>;
+  addActivityItem: (activityId: string, itemName: string) => Promise<void>;
+  removeActivityItem: (itemId: string, activityId: string) => Promise<void>;
+  addContribution: (itemId: string, activityId: string, userId: string, userName: string) => Promise<void>;
+  removeContribution: (itemId: string, activityId: string, userId: string) => Promise<void>;
   updateActivity: (id: string, data: any) => void;
   addActivity: (data: any) => void;
   setChats: (activityId: string, messages: ChatMessage[]) => void;
@@ -25,6 +46,7 @@ interface ActivityStoreState {
 export const useActivityStore = create<ActivityStoreState>((set, get) => ({
   activities: [],
   chats: {},
+  activityItems: {},
   isLoading: false,
   isRealtimeSetup: false,
   
@@ -65,6 +87,7 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
         organizerNote: act.organizer_note,
         maxParticipants: act.max_participants,
         creatorId: act.creator_id,
+        isBenefit: act.is_benefit,
         participants: act.participants?.map((p: any) => p.user_name) || [],
         participantIds: act.participants?.map((p: any) => p.user_id) || [],
         participantData: act.participants || [],
@@ -75,6 +98,88 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
       console.error("Error fetching activities:", error);
       set({ isLoading: false });
     }
+  },
+
+  fetchActivityItems: async (activityId: string) => {
+    const { data, error } = await supabase
+      .from('activity_items')
+      .select(`*, contributions:item_contributions(*)`)
+      .eq('activity_id', activityId)
+      .order('created_at', { ascending: true });
+    
+    if (!error && data) {
+      set(state => ({
+        activityItems: { ...state.activityItems, [activityId]: data as ActivityItem[] }
+      }));
+    }
+  },
+
+  addActivityItem: async (activityId: string, itemName: string) => {
+    const { data, error } = await supabase
+      .from('activity_items')
+      .insert([{ activity_id: activityId, item_name: itemName }])
+      .select(`*, contributions:item_contributions(*)`)
+      .single();
+    
+    if (!error && data) {
+      set(state => ({
+        activityItems: {
+          ...state.activityItems,
+          [activityId]: [...(state.activityItems[activityId] || []), data as ActivityItem]
+        }
+      }));
+    }
+  },
+
+  removeActivityItem: async (itemId: string, activityId: string) => {
+    await supabase.from('activity_items').delete().eq('id', itemId);
+    set(state => ({
+      activityItems: {
+        ...state.activityItems,
+        [activityId]: (state.activityItems[activityId] || []).filter(i => i.id !== itemId)
+      }
+    }));
+  },
+
+  addContribution: async (itemId: string, activityId: string, userId: string, userName: string) => {
+    const { data, error } = await supabase
+      .from('item_contributions')
+      .insert([{ item_id: itemId, user_id: userId, user_name: userName }])
+      .select()
+      .single();
+    
+    if (!error && data) {
+      set(state => ({
+        activityItems: {
+          ...state.activityItems,
+          [activityId]: (state.activityItems[activityId] || []).map(item =>
+            item.id === itemId
+              ? { ...item, contributions: [...item.contributions, data as ItemContribution] }
+              : item
+          )
+        }
+      }));
+    }
+  },
+
+  removeContribution: async (itemId: string, activityId: string, userId: string) => {
+    const state = get();
+    const item = (state.activityItems[activityId] || []).find(i => i.id === itemId);
+    const contrib = item?.contributions?.find(c => c.user_id === userId);
+    if (!contrib) return;
+
+    await supabase.from('item_contributions').delete().eq('id', contrib.id);
+    
+    set(state => ({
+      activityItems: {
+        ...state.activityItems,
+        [activityId]: (state.activityItems[activityId] || []).map(item =>
+          item.id === itemId
+            ? { ...item, contributions: item.contributions.filter(c => c.user_id !== userId) }
+            : item
+        )
+      }
+    }));
   },
 
   updateActivity: (id, data) => set((state) => ({

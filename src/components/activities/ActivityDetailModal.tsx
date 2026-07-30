@@ -1,10 +1,10 @@
-import { X, Calendar, Clock, MapPin, Users, Star, MessageSquare, Send, Heart, Share2, Info, UserPlus, Loader2, Camera, Check, Trash2, Edit } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, Star, MessageSquare, Send, Heart, Share2, Info, UserPlus, Loader2, Camera, Check, Trash2, Edit, Plus, Filter } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { getCategoryEmoji } from './ActivityCard';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useActivityStore } from '@/store/useActivityStore';
+import { useActivityStore, ActivityItem } from '@/store/useActivityStore';
 import { PublicProfileModal } from '../profile/PublicProfileModal';
 import { DirectMessageModal } from '../chat/DirectMessageModal';
 import dynamic from 'next/dynamic';
@@ -38,10 +38,24 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
   const [showShareMenu, setShowShareMenu] = useState(false);
   
   // New States
-  const [activeTab, setActiveTab] = useState<'info'|'admin'>('info');
+  const [activeTab, setActiveTab] = useState<'info'|'admin'|'aportes'>('info');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  
+  // Aportes state
+  const { activityItems, fetchActivityItems, addActivityItem, removeActivityItem, addContribution, removeContribution } = useActivityStore();
+  const [newItemName, setNewItemName] = useState('');
+  const [itemsFilter, setItemsFilter] = useState<'all'|'mine'|'missing'|'least'>('all');
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const isBenefit = activity.is_benefit || activity.isBenefit;
+  const items: ActivityItem[] = activityItems[activity.id] || [];
+
+  useEffect(() => {
+    if (isBenefit) {
+      fetchActivityItems(activity.id);
+    }
+  }, [activity.id, isBenefit]);
   
   // Modals for profile and DM
   const [selectedProfile, setSelectedProfile] = useState<{ id: string, name: string } | null>(null);
@@ -305,20 +319,30 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
         </div>
         
         <div className="p-6 pt-10 pb-12 overflow-y-auto flex-1">
-          {isCreator && (
-            <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+          {(isCreator || isBenefit) && (
+            <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6 overflow-x-auto">
               <button 
                 onClick={() => setActiveTab('info')}
-                className={`pb-2 px-4 font-bold ${activeTab === 'info' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}
+                className={`pb-2 px-4 font-bold whitespace-nowrap ${activeTab === 'info' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}
               >
                 Detalles
               </button>
-              <button 
-                onClick={() => setActiveTab('admin')}
-                className={`pb-2 px-4 font-bold ${activeTab === 'admin' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}
-              >
-                Control Asistencia
-              </button>
+              {isBenefit && (
+                <button 
+                  onClick={() => setActiveTab('aportes')}
+                  className={`pb-2 px-4 font-bold whitespace-nowrap ${activeTab === 'aportes' ? 'text-orange-500 border-b-2 border-orange-500' : 'text-slate-500'}`}
+                >
+                  🌭 Aportes
+                </button>
+              )}
+              {isCreator && (
+                <button 
+                  onClick={() => setActiveTab('admin')}
+                  className={`pb-2 px-4 font-bold whitespace-nowrap ${activeTab === 'admin' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}
+                >
+                  Control Asistencia
+                </button>
+              )}
             </div>
           )}
 
@@ -342,7 +366,163 @@ export function ActivityDetailModal({ activity, onClose }: { activity: any, onCl
             </div>
           )}
 
-          {activeTab === 'info' ? (
+          {activeTab === 'aportes' && isBenefit ? (
+            <div>
+              {/* Header Aportes */}
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-4 mb-4 text-white shadow-lg">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-3xl">🌭</span>
+                  <div>
+                    <h3 className="font-bold text-lg">Lista de Aportes</h3>
+                    <p className="text-orange-100 text-sm">¿Qué llevas a la completada?</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <span className="bg-white/20 text-white text-xs px-2 py-1 rounded-full font-bold">{items.filter(i => i.contributions.length > 0).length}/{items.length} cubiertos</span>
+                  <span className="bg-white/20 text-white text-xs px-2 py-1 rounded-full font-bold">{items.reduce((a, i) => a + i.contributions.length, 0)} personas aportando</span>
+                </div>
+              </div>
+
+              {/* Filtros */}
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                {([['all','Todos'],['mine','Mis aportes'],['missing','Sin cobertura'],['least','Menos aportados']] as const).map(([val, label]) => (
+                  <button key={val} onClick={() => setItemsFilter(val)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${itemsFilter === val ? 'bg-orange-500 text-white border-orange-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Lista de ítems */}
+              <div className="space-y-3 mb-4">
+                {(() => {
+                  const FOOD_EMOJIS: Record<string, string> = {
+                    'tomate': '🍅', 'tomates': '🍅',
+                    'palta': '🥑', 'paltas': '🥑', 'aguacate': '🥑',
+                    'pan': '🍞', 'pan de completo': '🌭', 'marraqueta': '🍞',
+                    'vienesa': '🌭', 'vienesas': '🌭', 'salchicha': '🌭', 'salchichas': '🌭',
+                    'ketchup': '🍅', 'mayonesa': '🫙', 'mostaza': '🫙', 'aderezo': '🫙',
+                    'bebida': '🥤', 'bebidas': '🥤', 'jugo': '🥤',
+                    'agua': '💧',
+                    'servilleta': '🧻', 'servilletas': '🧻',
+                    'plato': '🍽️', 'platos': '🍽️',
+                    'cubiertos': '🍴',
+                    'queso': '🧀',
+                    'cebolla': '🧅', 'cebollas': '🧅',
+                    'aji': '🌶️', 'ají': '🌶️', 'picante': '🌶️',
+                    'carne': '🥩',
+                    'pollo': '🍗',
+                    'huevo': '🥚', 'huevos': '🥚',
+                    'limón': '🍋', 'limon': '🍋',
+                  };
+                  const getEmoji = (name: string) => {
+                    const lower = name.toLowerCase().trim();
+                    return FOOD_EMOJIS[lower] || '🛒';
+                  };
+
+                  let filtered = [...items];
+                  if (itemsFilter === 'mine') filtered = filtered.filter(i => i.contributions.some(c => c.user_id === user?.id));
+                  if (itemsFilter === 'missing') filtered = filtered.filter(i => i.contributions.length === 0);
+                  if (itemsFilter === 'least') filtered = [...filtered].sort((a, b) => a.contributions.length - b.contributions.length);
+
+                  if (filtered.length === 0) return (
+                    <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+                      <span className="text-4xl block mb-2">🌭</span>
+                      <p className="text-sm">No hay ítems que mostrar con ese filtro.</p>
+                    </div>
+                  );
+
+                  return filtered.map(item => {
+                    const iCarrying = item.contributions.some(c => c.user_id === user?.id);
+                    const emoji = getEmoji(item.name || (item as any).item_name);
+                    const itemName = item.name || (item as any).item_name;
+                    return (
+                      <div key={item.id} className={`rounded-2xl border p-4 transition-all ${iCarrying ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-2xl shrink-0">{emoji}</span>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 dark:text-white capitalize">{itemName}</p>
+                              {item.contributions.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {item.contributions.map(c => (
+                                    <span key={c.id} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
+                                      ✓ {c.user_name}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 mt-0.5">Nadie se apuntó aún</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {user && (
+                              <button
+                                onClick={() => iCarrying
+                                  ? removeContribution(item.id, activity.id, user.id)
+                                  : addContribution(item.id, activity.id, user.id, user.name)
+                                }
+                                className={`px-3 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 ${iCarrying ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'}`}
+                              >
+                                {iCarrying ? <><Check size={14}/> Yo lo llevo</> : <>+ Yo lo llevo</>}
+                              </button>
+                            )}
+                            {(isCreator) && (
+                              <button onClick={() => removeActivityItem(item.id, activity.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                <Trash2 size={14}/>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Agregar nuevo ítem */}
+              {(isJoined || isCreator) && (
+                <div className="border-2 border-dashed border-orange-200 dark:border-orange-800/50 rounded-2xl p-4 bg-orange-50/50 dark:bg-orange-900/10">
+                  <p className="text-sm font-bold text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-2">
+                    <Plus size={16}/> Agregar algo que falta en la lista
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newItemName}
+                      onChange={e => setNewItemName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && newItemName.trim()) {
+                          setIsAddingItem(true);
+                          addActivityItem(activity.id, newItemName.trim()).then(() => {
+                            setNewItemName('');
+                            setIsAddingItem(false);
+                          });
+                        }
+                      }}
+                      placeholder="Ej: Limones, mostaza, vasos..."
+                      className="flex-1 border border-orange-200 dark:border-orange-800 rounded-xl p-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                    <button
+                      disabled={!newItemName.trim() || isAddingItem}
+                      onClick={() => {
+                        if (!newItemName.trim()) return;
+                        setIsAddingItem(true);
+                        addActivityItem(activity.id, newItemName.trim()).then(() => {
+                          setNewItemName('');
+                          setIsAddingItem(false);
+                        });
+                      }}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {isAddingItem ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'info' ? (
             <>
               <div className="flex justify-between items-start mb-6">
                 <div>

@@ -39,7 +39,10 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
       style.id = styleId;
-      style.innerHTML = css;
+      style.innerHTML = css + `
+        .custom-emoji-icon { filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.35)); transition: filter 0.2s; }
+        .custom-emoji-icon:hover { filter: drop-shadow(0px 5px 8px rgba(0,0,0,0.5)); }
+      `;
       document.head.appendChild(style);
     }
 
@@ -130,9 +133,9 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
             const emoji = getCategoryEmoji(act.category);
             const icon = L.divIcon({
               html: `
-                <div class="relative w-8 h-8 flex items-center justify-center drop-shadow-xl">
+                <div class="relative w-8 h-8 flex items-center justify-center" style="filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.35));">
                   ${isActive ? '<div class="absolute inset-[-4px] bg-green-500 rounded-full animate-ping opacity-60"></div>' : ''}
-                  <div style="font-size: 20px; text-align: center; line-height: 28px; background: white; border-radius: 50%; width: 28px; height: 28px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); border: 2px solid ${isActive ? '#22c55e' : '#16a34a'}; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" class="relative z-10 ${isActive ? 'scale-110' : ''}">
+                  <div style="font-size: 20px; text-align: center; line-height: 28px; background: white; border-radius: 50%; width: 28px; height: 28px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); border: 2px solid ${isActive ? '#22c55e' : '#16a34a'}; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" class="relative z-10 ${isActive ? 'scale-110' : ''}">
                     ${emoji}
                   </div>
                 </div>
