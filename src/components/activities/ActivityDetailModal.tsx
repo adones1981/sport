@@ -46,8 +46,9 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
   const [showCamera, setShowCamera] = useState(false);
   
   // Aportes state
-  const { activityItems, fetchActivityItems, addActivityItem, removeActivityItem, addContribution, removeContribution } = useActivityStore();
+  const { activityItems, fetchActivityItems, addActivityItem, removeActivityItem, updateActivityItem, addContribution, removeContribution, updateContribution } = useActivityStore();
   const [newItemName, setNewItemName] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [itemsFilter, setItemsFilter] = useState<'all'|'mine'|'missing'|'least'>('all');
   const [isAddingItem, setIsAddingItem] = useState(false);
   const isBenefit = activity.is_benefit || activity.isBenefit;
@@ -116,6 +117,18 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !user) return;
+    
+    if (newComment.length > 150) {
+      alert('Tu mensaje es muy largo. Por favor, sé más breve (máx 150 caracteres).');
+      return;
+    }
+
+    const myRecentComments = comments.slice(-3);
+    if (myRecentComments.length === 3 && myRecentComments.every(c => c.user_id === user.id)) {
+      alert('Por favor, espera a que alguien más responda antes de enviar más mensajes.');
+      return;
+    }
+
     setIsSending(true);
     
     const newChat = {
@@ -435,45 +448,121 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
                   );
 
                   return filtered.map(item => {
-                    const iCarrying = item.contributions.some(c => c.user_id === user?.id);
+                    const requiredQty = item.required_quantity || 1;
+                    const totalProvided = item.contributions.reduce((acc, c) => acc + (c.provided_quantity || 1), 0);
+                    const isFull = totalProvided >= requiredQty;
+                    const myContribution = item.contributions.find(c => c.user_id === user?.id);
+                    const iCarrying = !!myContribution;
+                    
                     const emoji = getEmoji(item.name || (item as any).item_name);
                     const itemName = item.name || (item as any).item_name;
                     return (
-                      <div key={item.id} className={`rounded-2xl border p-4 transition-all ${iCarrying ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50'}`}>
+                      <div key={item.id} className={`rounded-2xl border p-4 transition-all ${isFull && !iCarrying ? 'opacity-60 grayscale bg-slate-50 dark:bg-slate-900/50' : iCarrying ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <span className="text-2xl shrink-0">{emoji}</span>
-                            <div className="min-w-0">
-                              <p className="font-bold text-slate-900 dark:text-white capitalize">{itemName}</p>
+                            <div className="min-w-0 w-full">
+                              <p className="font-bold text-slate-900 dark:text-white capitalize flex items-center justify-between">
+                                <span>{itemName}</span>
+                                <span className={`text-xs px-2 py-1 rounded-full ${isFull ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                                  {totalProvided} / {requiredQty}
+                                </span>
+                              </p>
                               {item.contributions.length > 0 ? (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {item.contributions.map(c => (
                                     <span key={c.id} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
-                                      ✓ {c.user_name}
+                                      ✓ {c.user_name} ({c.provided_quantity || 1})
                                     </span>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-slate-400 mt-0.5">Nadie se apuntó aún</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Faltan {requiredQty}</p>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {user && (
-                              <button
-                                onClick={() => iCarrying
-                                  ? removeContribution(item.id, activity.id, user.id)
-                                  : addContribution(item.id, activity.id, user.id, user.name)
-                                }
-                                className={`px-3 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 ${iCarrying ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'}`}
-                              >
-                                {iCarrying ? <><Check size={14}/> Yo lo llevo</> : <>+ Yo lo llevo</>}
-                              </button>
+                              <div className="flex items-center gap-1">
+                                {iCarrying && requiredQty > 1 && (
+                                  <button
+                                    onClick={() => {
+                                      const missing = requiredQty - (totalProvided - (myContribution?.provided_quantity || 1));
+                                      const input = window.prompt(`¿Cuántos vas a aportar en total? (Máximo ${missing})`, (myContribution?.provided_quantity || 1).toString());
+                                      if (!input) return;
+                                      const qty = parseInt(input, 10);
+                                      if (isNaN(qty) || qty <= 0) {
+                                        alert('Cantidad inválida.');
+                                        return;
+                                      }
+                                      if (qty > missing) {
+                                        alert(`No puedes llevar más de lo que falta (${missing}).`);
+                                        return;
+                                      }
+                                      updateContribution(item.id, activity.id, user.id, qty);
+                                    }}
+                                    className="p-2 text-slate-500 hover:text-orange-500 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                                    title="Editar cantidad"
+                                  >
+                                    <Edit size={16}/>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    if (iCarrying) {
+                                      removeContribution(item.id, activity.id, user.id);
+                                    } else {
+                                      const missing = requiredQty - totalProvided;
+                                      let qtyToBring = 1;
+                                      if (requiredQty > 1) {
+                                        const input = window.prompt(`¿Cuántos ${itemName} vas a aportar? (Faltan ${missing})`, missing.toString());
+                                        if (!input) return;
+                                        qtyToBring = parseInt(input, 10);
+                                        if (isNaN(qtyToBring) || qtyToBring <= 0) {
+                                          alert('Cantidad inválida.');
+                                          return;
+                                        }
+                                        if (qtyToBring > missing) {
+                                          alert(`No puedes llevar más de lo que falta (${missing}).`);
+                                          return;
+                                        }
+                                      }
+                                      addContribution(item.id, activity.id, user.id, user.name, qtyToBring);
+                                    }
+                                  }}
+                                  disabled={isFull && !iCarrying}
+                                  className={`px-3 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 ${isFull && !iCarrying ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400' : iCarrying ? 'bg-red-500 hover:bg-red-600 text-white shadow-md' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'}`}
+                                >
+                                  {iCarrying ? <><X size={14}/> No lo llevaré</> : <><Plus size={14}/> Yo aporto</>}
+                                </button>
+                              </div>
                             )}
                             {(isCreator) && (
-                              <button onClick={() => removeActivityItem(item.id, activity.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                <Trash2 size={14}/>
-                              </button>
+                              <div className="flex items-center">
+                                <button 
+                                  onClick={() => {
+                                    const input = window.prompt(`¿Cuántos ${itemName} necesitas en total?`, requiredQty.toString());
+                                    if (!input) return;
+                                    const qty = parseInt(input, 10);
+                                    if (isNaN(qty) || qty <= 0) {
+                                      alert('Cantidad inválida.');
+                                      return;
+                                    }
+                                    if (qty < totalProvided) {
+                                      alert(`Ya han aportado ${totalProvided}. No puedes pedir menos que eso.`);
+                                      return;
+                                    }
+                                    updateActivityItem(item.id, activity.id, qty);
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                  title="Editar cantidad requerida"
+                                >
+                                  <Edit size={14}/>
+                                </button>
+                                <button onClick={() => removeActivityItem(item.id, activity.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eliminar ítem">
+                                  <Trash2 size={14}/>
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -489,7 +578,7 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
                   <p className="text-sm font-bold text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-2">
                     <Plus size={16}/> Agregar algo que falta en la lista
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={newItemName}
@@ -497,29 +586,40 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
                       onKeyDown={e => {
                         if (e.key === 'Enter' && newItemName.trim()) {
                           setIsAddingItem(true);
-                          addActivityItem(activity.id, newItemName.trim()).then(() => {
+                          addActivityItem(activity.id, newItemName.trim(), newItemQuantity).then(() => {
                             setNewItemName('');
+                            setNewItemQuantity(1);
                             setIsAddingItem(false);
                           });
                         }
                       }}
-                      placeholder="Ej: Limones, mostaza, vasos..."
+                      placeholder="Ej: Limones, vasos..."
                       className="flex-1 border border-orange-200 dark:border-orange-800 rounded-xl p-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
                     />
-                    <button
-                      disabled={!newItemName.trim() || isAddingItem}
-                      onClick={() => {
-                        if (!newItemName.trim()) return;
-                        setIsAddingItem(true);
-                        addActivityItem(activity.id, newItemName.trim()).then(() => {
-                          setNewItemName('');
-                          setIsAddingItem(false);
-                        });
-                      }}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1"
-                    >
-                      {isAddingItem ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>}
-                    </button>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={newItemQuantity}
+                        onChange={e => setNewItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 border border-orange-200 dark:border-orange-800 rounded-xl p-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                      <button
+                        disabled={!newItemName.trim() || isAddingItem}
+                        onClick={() => {
+                          if (!newItemName.trim()) return;
+                          setIsAddingItem(true);
+                          addActivityItem(activity.id, newItemName.trim(), newItemQuantity).then(() => {
+                            setNewItemName('');
+                            setNewItemQuantity(1);
+                            setIsAddingItem(false);
+                          });
+                        }}
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {isAddingItem ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -562,12 +662,86 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
                 )}
               </div>
               
+              {activity.image_url && (
+                <div className="mb-6 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group">
+                  <img src={activity.image_url} alt="Lugar del evento" className="w-full h-48 object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="text-white opacity-50" size={32}/>
+                  </div>
+                </div>
+              )}
+
+              {isCreator && (
+                <div className="mb-6">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="image-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const toastId = Math.random();
+                      alert("Subiendo imagen... Por favor espera.");
+                      try {
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `${activity.id}-${Math.random()}.${fileExt}`;
+                        
+                        const { error: uploadError } = await supabase.storage
+                          .from('activity_images')
+                          .upload(fileName, file);
+                          
+                        if (uploadError) throw uploadError;
+                        
+                        const { data: { publicUrl } } = supabase.storage
+                          .from('activity_images')
+                          .getPublicUrl(fileName);
+                          
+                        const { error: updateError } = await supabase
+                          .from('activities')
+                          .update({ image_url: publicUrl })
+                          .eq('id', activity.id);
+                          
+                        if (updateError) throw updateError;
+                        
+                        updateActivity(activity.id, { ...activity, image_url: publicUrl });
+                        alert("¡Imagen subida correctamente!");
+                      } catch (error: any) {
+                        alert("Error al subir la imagen: " + (error.message || JSON.stringify(error)));
+                      }
+                    }}
+                  />
+                  <label htmlFor="image-upload" className="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-500 hover:text-orange-500 hover:border-orange-500 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-800/50">
+                    <Camera size={20} />
+                    <span className="font-semibold text-sm">{activity.image_url ? 'Cambiar foto del lugar' : 'Agregar foto del lugar (Ej: Fachada, Entrada)'}</span>
+                  </label>
+                </div>
+              )}
+              
               <div className="space-y-4 mb-6">
                 <div className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
                   <MapPin className="text-red-500 shrink-0 mt-0.5" />
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-slate-900 dark:text-white">{activity.locationName}</p>
-                    <p className="text-sm">{activity.exactAddress || "Dirección por confirmar"}</p>
+                    <p className="text-sm mb-3">{activity.exactAddress || "Dirección por confirmar"}</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <a 
+                        href={`https://waze.com/ul?q=${encodeURIComponent(activity.exactAddress || activity.locationName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg text-xs font-bold transition-colors border border-blue-200 dark:border-blue-800"
+                      >
+                        🚗 Abrir en Waze
+                      </a>
+                      <a 
+                        href={`https://maps.google.com/?q=${encodeURIComponent(activity.exactAddress || activity.locationName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-bold transition-colors border border-green-200 dark:border-green-800"
+                      >
+                        📍 Google Maps
+                      </a>
+                    </div>
                   </div>
                 </div>
                 
@@ -700,7 +874,8 @@ export function ActivityDetailModal({ activity: initialActivity, onClose }: { ac
                       value={newComment}
                       onChange={e => setNewComment(e.target.value)}
                       onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)}
-                      placeholder="Escribe un comentario..." 
+                      placeholder="Escribe un comentario..."
+                      maxLength={150} 
                       className="flex-1 border border-slate-200 p-2.5 rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700 bg-transparent focus:ring-2 focus:ring-green-400 outline-none"
                     />
                     <button type="submit" disabled={isSending} className="bg-green-600 text-white p-2.5 rounded-lg hover:bg-green-500 transition-colors shadow-sm disabled:opacity-50">

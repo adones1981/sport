@@ -181,9 +181,22 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
           }
 
           if (data.is_benefit) {
-             const defaultItems = ['Tomate', 'Palta', 'Ketchup', 'Mayonesa', 'Pan de completo', 'Vienesas', 'Servilletas'].map(item => ({
+             const defaultItemsList = [
+               { name: '🍅 Tomates', qty: 20 },
+               { name: '🥑 Palta', qty: 20 },
+               { name: '🍅 Ketchup', qty: 5 },
+               { name: '🥚 Mayonesa', qty: 5 },
+               { name: '🌭 Mostaza', qty: 3 },
+               { name: '🌶️ Ají', qty: 2 },
+               { name: '🥤 Bebidas', qty: 10 },
+               { name: '🥖 Pan de completo', qty: 50 },
+               { name: '🌭 Salchichas', qty: 50 },
+               { name: '🧻 Servilletas', qty: 3 }
+             ];
+             const defaultItems = defaultItemsList.map(item => ({
                activity_id: newActivity.id,
-               item_name: item,
+               item_name: item.name,
+               required_quantity: item.qty
              }));
              await supabase.from('activity_items').insert(defaultItems);
           }

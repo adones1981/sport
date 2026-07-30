@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useActivityStore } from '@/store/useActivityStore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActivities } from '@/hooks/useActivities';
-import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star, Share2, Info, Check, Mail } from 'lucide-react';
+import { ArrowLeft, User, Activity, Calendar, Zap, CheckCircle, Save, Loader2, Camera, MessageCircle, MapPin, XCircle, Settings, Edit3, Users, Star, Share2, Info, Check, Mail, MoreHorizontal, LogOut, Trash2, Map } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const CreateActivityModal = dynamic(() => import('@/components/activities/CreateActivityModal').then(mod => mod.CreateActivityModal), { ssr: false });
@@ -22,6 +22,8 @@ function ProfileContent() {
   const { activities } = useActivities({ category: 'all' });
   
   // States for modals
+  const [shareActivityId, setShareActivityId] = useState<number | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const [chattingActivity, setChattingActivity] = useState<any>(null);
   const [adminActivity, setAdminActivity] = useState<any>(null);
@@ -381,15 +383,41 @@ function ProfileContent() {
                   <div className="space-y-4">
                     {upcomingActivities.map(act => (
                       <div key={act.id} className="border border-slate-200 dark:border-slate-700 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-slate-50 dark:bg-slate-900/50 hover:shadow-md transition-shadow">
-                         <div>
+                         <div className="flex-1 min-w-0 w-full">
                            <span className="text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded mb-2 inline-block border border-green-200 dark:border-green-800/50">{act.category}</span>
-                           <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-white">{act.title}</h3>
-                           <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500"/> {new Date(act.date).toLocaleDateString()} a las {act.time}</p>
-                           <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1.5"><MapPin size={14} className="text-red-500"/> {act.locationName}</p>
+                           <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-white line-clamp-2">{act.title}</h3>
+                           <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500 shrink-0"/> {new Date(act.date).toLocaleDateString()} a las {act.time}</p>
+                           <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1.5"><MapPin size={14} className="text-red-500 shrink-0"/> <span className="line-clamp-2">{act.locationName}</span></p>
                          </div>
-                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0">
-                           <button onClick={() => setChattingActivity(act)} className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"><MessageCircle size={16} className="text-green-500"/> Chat</button>
-                           <button onClick={() => alert('Se ha cancelado tu inscripción en: ' + act.title)} className="flex-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"><XCircle size={16}/> Cancelar</button>
+                         <div className="flex flex-row gap-2 w-full lg:w-auto mt-2 lg:mt-0 items-center justify-end shrink-0">
+                           <button onClick={() => setChattingActivity(act)} className="flex-1 sm:flex-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"><MessageCircle size={16} className="text-green-500"/> Chat</button>
+                           
+                           <div className="relative">
+                             <button onClick={() => setMenuOpenId(menuOpenId === act.id ? null : act.id)} className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                               <MoreHorizontal size={20} />
+                             </button>
+                             {menuOpenId === act.id && (
+                               <div className="absolute right-0 top-12 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 flex flex-col gap-1 z-50 w-48">
+                                 <button onClick={() => window.location.href = `/?activity=${act.id}`} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2">
+                                   <Map size={16} /> Ver en el mapa
+                                 </button>
+                                 <button onClick={async () => {
+                                   if (window.confirm('¿Estás seguro de salir de esta actividad?\n\nEl organizador será notificado y tu cupo quedará libre.')) {
+                                     const { error } = await supabase.from('activity_participants').delete().match({ activity_id: act.id, user_id: user.id });
+                                     if (error) {
+                                       alert('Error al salir: ' + error.message);
+                                     } else {
+                                       alert('Has salido de la actividad con éxito.');
+                                       window.location.reload();
+                                     }
+                                   }
+                                   setMenuOpenId(null);
+                                 }} className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 pt-3 mt-1">
+                                   <LogOut size={16} /> Salir
+                                 </button>
+                               </div>
+                             )}
+                           </div>
                          </div>
                       </div>
                     ))}
@@ -399,27 +427,71 @@ function ProfileContent() {
                 {activitySubTab === 'created' && (
                   <div className="space-y-4">
                     {createdActivities.map(act => (
-                      <div key={act.id} className="border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-blue-50/50 dark:bg-blue-900/10 hover:shadow-md transition-shadow">
-                         <div className="flex-1">
+                      <div key={act.id} className="border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-blue-50/50 dark:bg-blue-900/10 hover:shadow-md transition-shadow">
+                         <div className="flex-1 min-w-0 w-full">
                            <span className="text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded mb-2 inline-block border border-blue-200 dark:border-blue-800/50">Organizador</span>
-                           <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-white">{act.title}</h3>
+                           <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-white line-clamp-2">{act.title}</h3>
                            
                            <div className="flex flex-col gap-1.5 mt-2">
-                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500"/> {new Date(act.date).toLocaleDateString()} a las {act.time}</p>
-                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={14} className="text-red-500"/> {act.locationName}</p>
-                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-1.5"><Users size={16} className="text-yellow-500"/> Cupos: {act.participants?.length || 0} de {act.maxParticipants} Confirmados</p>
+                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500 shrink-0"/> <span className="truncate">{new Date(act.date).toLocaleDateString()} a las {act.time}</span></p>
+                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={14} className="text-red-500 shrink-0"/> <span className="line-clamp-2">{act.locationName}</span></p>
+                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-1.5"><Users size={16} className="text-yellow-500 shrink-0"/> <span>Cupos: {act.participants?.length || 0} de {act.maxParticipants} Confirmados</span></p>
                            </div>
                          </div>
-                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0 flex-wrap justify-end">
-                           <button onClick={() => handleShare(act)} className="flex-1 sm:flex-none bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"><Share2 size={16}/> Compartir</button>
-                           <button onClick={() => openChat(act)} className="flex-1 sm:flex-none relative bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                         <div className="flex flex-row gap-2 w-full lg:w-auto mt-2 lg:mt-0 items-center justify-end shrink-0">
+                           <button onClick={() => openChat(act)} className="flex-1 sm:flex-none relative bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
                              <MessageCircle size={16} className="text-green-500"/> Chat
                              {unreadCounts[act.id] > 0 && (
                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">{unreadCounts[act.id]}</span>
                              )}
                            </button>
-                           <button onClick={() => setAdminActivity(act)} className="flex-1 sm:flex-none bg-slate-900 dark:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"><Users size={16}/> Admin</button>
-                           <button onClick={() => setEditingActivity(act)} className="flex-1 sm:flex-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-200"><Edit3 size={16} className="text-blue-500"/> Editar</button>
+                           <button onClick={() => setAdminActivity(act)} className="flex-1 sm:flex-none bg-slate-900 dark:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"><Users size={16}/> Admin</button>
+                           
+                           <div className="relative">
+                             <button onClick={() => setMenuOpenId(menuOpenId === act.id ? null : act.id)} className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                               <MoreHorizontal size={20} />
+                             </button>
+                             {menuOpenId === act.id && (
+                               <div className="absolute right-0 top-12 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 flex flex-col gap-1 z-50 w-48">
+                                 <button onClick={() => window.location.href = `/?activity=${act.id}`} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2">
+                                   <Map size={16} /> Ver en el mapa
+                                 </button>
+                                 <button onClick={() => {
+                                   navigator.clipboard.writeText(`¡Únete a mi actividad "${act.title}" en SportSquad!\n\nEnlace: ${window.location.origin}`); 
+                                   alert('Enlace copiado al portapapeles');
+                                   setMenuOpenId(null);
+                                 }} className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 pt-3 mt-1">
+                                   <Share2 size={16} /> Compartir
+                                 </button>
+                                 <button onClick={() => {
+                                   setAdminActivity(act);
+                                   setMenuOpenId(null);
+                                 }} className="w-full text-left px-3 py-2 text-sm text-orange-600 dark:text-orange-400 font-medium hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg flex items-center gap-2">
+                                   <Users size={16} /> Delegar
+                                 </button>
+                                 <button onClick={() => {
+                                   setEditingActivity(act);
+                                   setMenuOpenId(null);
+                                 }} className="w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 pt-3 mt-1">
+                                   <Edit3 size={16} /> Editar
+                                 </button>
+                                 <button onClick={async () => {
+                                   if (window.confirm('¿Estás seguro de que deseas eliminar esta actividad?\n\nEsta acción no se puede deshacer.')) {
+                                     const { error } = await supabase.from('activities').delete().eq('id', act.id);
+                                     if (error) {
+                                       alert('Error al eliminar: ' + error.message);
+                                     } else {
+                                       alert('Actividad eliminada con éxito');
+                                       window.location.reload();
+                                     }
+                                   }
+                                   setMenuOpenId(null);
+                                 }} className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 pt-3 mt-1">
+                                   <Trash2 size={16} /> Eliminar
+                                 </button>
+                               </div>
+                             )}
+                           </div>
                          </div>
                       </div>
                     ))}

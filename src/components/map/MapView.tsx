@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -13,6 +13,13 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const searchMarkerRef = useRef<L.Marker | null>(null);
+  const [highlightedId, setHighlightedId] = useState<any>(null);
+
+  useEffect(() => {
+    if (selectedActivityId) {
+      setHighlightedId(selectedActivityId);
+    }
+  }, [selectedActivityId]);
 
   useEffect(() => {
     // Basic CSS for dark popup injection
@@ -85,7 +92,10 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
 
         if (!mapRef.current) return;
 
-        const clusterGroup = (L as any).markerClusterGroup({
+        const clusterGroupFn = (L as any).markerClusterGroup || (window as any).L?.markerClusterGroup;
+        if (!clusterGroupFn) return; // Prevent crash if it failed to load
+        
+        const clusterGroup = clusterGroupFn({
           showCoverageOnHover: false,
           maxClusterRadius: 40,
           spiderfyOnMaxZoom: true,
@@ -115,7 +125,8 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
               renderLng += Math.sin(angle) * distance;
             }
 
-            const isActive = act.id === selectedActivityId;
+            const isSelected = act.id === selectedActivityId;
+            const isActive = isSelected || act.id === highlightedId;
             const emoji = getCategoryEmoji(act.category);
             const icon = L.divIcon({
               html: `

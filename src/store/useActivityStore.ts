@@ -13,6 +13,7 @@ export interface ActivityItem {
   id: string;
   activity_id: string;
   item_name: string;
+  required_quantity: number;
   created_at: string;
   contributions: ItemContribution[];
 }
@@ -22,6 +23,7 @@ export interface ItemContribution {
   item_id: string;
   user_id: string;
   user_name: string;
+  provided_quantity: number;
 }
 
 interface ActivityStoreState {
@@ -34,9 +36,11 @@ interface ActivityStoreState {
   setupRealtime: () => void;
   fetchActivities: () => Promise<void>;
   fetchActivityItems: (activityId: string) => Promise<void>;
-  addActivityItem: (activityId: string, itemName: string) => Promise<void>;
+  addActivityItem: (activityId: string, itemName: string, requiredQuantity?: number) => Promise<void>;
+  updateActivityItem: (itemId: string, activityId: string, requiredQuantity: number) => Promise<void>;
   removeActivityItem: (itemId: string, activityId: string) => Promise<void>;
-  addContribution: (itemId: string, activityId: string, userId: string, userName: string) => Promise<void>;
+  addContribution: (itemId: string, activityId: string, userId: string, userName: string, providedQuantity?: number) => Promise<void>;
+  updateContribution: (itemId: string, activityId: string, userId: string, newQuantity: number) => Promise<void>;
   removeContribution: (itemId: string, activityId: string, userId: string) => Promise<void>;
   updateActivity: (id: string, data: any) => void;
   addActivity: (data: any) => void;
@@ -114,10 +118,10 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
     }
   },
 
-  addActivityItem: async (activityId: string, itemName: string) => {
+  addActivityItem: async (activityId: string, itemName: string, requiredQuantity: number = 1) => {
     const { data, error } = await supabase
       .from('activity_items')
-      .insert([{ activity_id: activityId, item_name: itemName }])
+      .insert([{ activity_id: activityId, item_name: itemName, required_quantity: requiredQuantity }])
       .select(`*, contributions:item_contributions(*)`)
       .single();
     
@@ -136,19 +140,46 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
     set(state => ({
       activityItems: {
         ...state.activityItems,
-        [activityId]: (state.activityItems[activityId] || []).filter(i => i.id !== itemId)
+        [activityId]: (state.activityItems[activityId] || []).filter(item => item.id !== itemId)
       }
     }));
   },
 
-  addContribution: async (itemId: string, activityId: string, userId: string, userName: string) => {
+  updateActivityItem: async (itemId: string, activityId: string, requiredQuantity: number) => {
+    const { data, error } = await supabase
+      .from('activity_items')
+      .update({ required_quantity: requiredQuantity })
+      .eq('id', itemId)
+      .select()
+      .single();
+      
+    if (!error && data) {
+      set(state => ({
+        activityItems: {
+          ...state.activityItems,
+          [activityId]: (state.activityItems[activityId] || []).map(item => 
+            item.id === itemId ? { ...item, required_quantity: requiredQuantity } : item
+          )
+        }
+      }));
+    } else if (error) {
+      alert("Error actualizando cantidad: " + error.message);
+    }
+  },
+
+  addContribution: async (itemId: string, activityId: string, userId: string, userName: string, providedQuantity: number = 1) => {
     const { data, error } = await supabase
       .from('item_contributions')
-      .insert([{ item_id: itemId, user_id: userId, user_name: userName }])
+      .insert([{ item_id: itemId, user_id: userId, user_name: userName, provided_quantity: providedQuantity }])
       .select()
       .single();
     
-    if (!error && data) {
+    if (error) {
+      alert("Error en la Base de Datos: " + (error.message || JSON.stringify(error)));
+      return;
+    }
+    
+    if (data) {
       set(state => ({
         activityItems: {
           ...state.activityItems,
@@ -162,14 +193,54 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
     }
   },
 
+  updateContribution: async (itemId: string, activityId: string, userId: string, newQuantity: number) => {
+    const state = get();
+    const item = (state.activityItems[activityId] || []).find(i => i.id === itemId);
+    const contrib = item?.contributions?.find(c => c.user_id === userId);
+    if (!contrib) return;
+
+    const { data, error } = await supabase
+      .from('item_contributions')
+      .update({ provided_quantity: newQuantity })
+      .eq('id', contrib.id)
+      .select()
+      .single();
+
+    if (error) {
+      alert("Error actualizando aporte: " + (error.message || JSON.stringify(error)));
+      return;
+    }
+
+    if (data) {
+      set(state => ({
+        activityItems: {
+          ...state.activityItems,
+          [activityId]: (state.activityItems[activityId] || []).map(item =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  contributions: item.contributions.map(c => c.id === contrib.id ? (data as ItemContribution) : c)
+                }
+              : item
+          )
+        }
+      }));
+    }
+  },
+
   removeContribution: async (itemId: string, activityId: string, userId: string) => {
     const state = get();
     const item = (state.activityItems[activityId] || []).find(i => i.id === itemId);
     const contrib = item?.contributions?.find(c => c.user_id === userId);
     if (!contrib) return;
 
-    await supabase.from('item_contributions').delete().eq('id', contrib.id);
+    const { error } = await supabase.from('item_contributions').delete().eq('id', contrib.id);
     
+    if (error) {
+      alert("Error eliminando aporte: " + (error.message || JSON.stringify(error)));
+      return;
+    }
+
     set(state => ({
       activityItems: {
         ...state.activityItems,
