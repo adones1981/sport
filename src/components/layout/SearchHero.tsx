@@ -2,7 +2,8 @@ import { Activity, LogIn, Bike, Dumbbell, Coffee, Utensils, Music, Footprints, T
 import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useActivityStore } from '@/store/useActivityStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { LoginModal } from '../auth/LoginModal';
 
 export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any) => void }) {
@@ -11,8 +12,43 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   
   const { activities } = useActivityStore();
+  
+  useEffect(() => {
+    if (user && activities.length > 0) {
+      const myActivities = activities.filter(a => a.participantIds?.includes(user.id) || a.creatorId === user.id);
+      if (myActivities.length === 0) return;
+      
+      const checkUnread = async () => {
+        const { data } = await supabase
+          .from('activity_chats')
+          .select('activity_id, created_at, user_id')
+          .in('activity_id', myActivities.map(a => a.id))
+          .order('created_at', { ascending: false });
+
+        if (data) {
+          let unread = false;
+          for (const chat of data) {
+            if (chat.user_id === user.id) continue;
+            const lastViewed = localStorage.getItem(`lastViewedChat_${chat.activity_id}`);
+            if (!lastViewed || new Date(chat.created_at) > new Date(lastViewed)) {
+              unread = true;
+              break;
+            }
+          }
+          // Temporarily disable unread dot since lastViewed is not being updated yet
+          // setHasUnread(unread);
+          setHasUnread(false);
+        }
+      };
+      
+      checkUnread();
+      const interval = setInterval(checkUnread, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user, activities]);
   
   const handleSearch = async () => {
     if(!query.trim()) {
@@ -85,10 +121,13 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
         <div>
           {user ? (
             <div className="relative">
-              <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2 bg-green-800/40 hover:bg-green-800/60 p-1 pr-3 rounded-full border border-green-500/50 transition-colors">
+              <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2 bg-green-800/40 hover:bg-green-800/60 p-1 pr-3 rounded-full border border-green-500/50 transition-colors relative">
                 <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border-2 border-green-400 bg-white" />
                 <span className="font-medium text-sm hidden sm:inline text-white">{user.name}</span>
                 <ChevronDown size={16} className="text-green-200" />
+                {hasUnread && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-green-700 rounded-full animate-bounce shadow-sm"></span>
+                )}
               </button>
               
               {dropdownOpen && (
@@ -121,7 +160,7 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
 
       <div className="text-center relative z-10 max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-left flex-1 hidden md:block">
-           <h1 className="text-3xl font-bold mb-1 drop-shadow-sm">Encuentra tu próximo partido</h1>
+           <h1 className="text-3xl font-bold mb-1 drop-shadow-sm">Encuentra tu próximo partido o panorama</h1>
            <p className="text-green-50 text-sm">Únete a actividades o crea la tuya al instante.</p>
         </div>
         
@@ -129,6 +168,7 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
         <div className="w-full flex-1 flex flex-col sm:flex-row gap-2 justify-end items-center relative z-20">
           <div className="relative w-full sm:w-2/3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <MapPin className="absolute left-9 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
             <input 
               type="text" 
               value={query}
@@ -138,7 +178,7 @@ export function SearchHero({ onLocationSelect }: { onLocationSelect?: (loc: any)
               }}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Buscar parque, actividad, futbol..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-900 text-white placeholder-gray-400 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-xl text-base transition-all"
+              className="w-full pl-16 pr-10 py-2.5 rounded-xl bg-gray-900 text-white placeholder-gray-400 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-xl text-base transition-all"
             />
             {query && (
               <button 

@@ -1,16 +1,24 @@
 import { useActivityStore } from '@/store/useActivityStore';
 import { useEffect } from 'react';
 
-export function useActivities({ category, searchQuery = '' }: { category: string, searchQuery?: string }) {
+export function useActivities({ category, searchQuery = '', dateFilter = 'all' }: { category: string, searchQuery?: string, dateFilter?: string }) {
   const allActivities = useActivityStore(state => state.activities);
   const isLoading = useActivityStore(state => state.isLoading);
   const fetchActivities = useActivityStore(state => state.fetchActivities);
 
   useEffect(() => {
-    // Solo descargar si el arreglo está vacío para no machacar la UI continuamente
+    // Descargar inicial
     if (allActivities.length === 0) {
       fetchActivities();
     }
+    
+    // Polling robusto: actualizar silenciosamente cada 10 segundos
+    // por si Supabase Realtime no está activado en el servidor
+    const interval = setInterval(() => {
+      fetchActivities();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [fetchActivities, allActivities.length]);
 
   let filtered = allActivities;
@@ -26,6 +34,24 @@ export function useActivities({ category, searchQuery = '' }: { category: string
       (act.exactAddress && act.exactAddress.toLowerCase().includes(q)) ||
       act.title?.toLowerCase().includes(q)
     );
+  }
+
+  if (dateFilter !== 'all') {
+    const now = new Date();
+    filtered = filtered.filter(act => {
+      if (!act.date) return true;
+      const actDate = new Date(act.date);
+      if (dateFilter === 'today') {
+        return actDate.toDateString() === now.toDateString();
+      }
+      if (dateFilter === 'weekend') {
+        const day = actDate.getDay();
+        // 0 = Sunday, 6 = Saturday
+        // Also ensure it's this upcoming weekend or next few days, not past. But for simplicity, just check if it's Sat/Sun.
+        return day === 0 || day === 6;
+      }
+      return true;
+    });
   }
 
   return {

@@ -19,9 +19,33 @@ export function AdminModal({ activity, onClose }: { activity: any, onClose: () =
                   <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`} className="w-8 h-8 rounded-full" />
                   <span className="font-medium text-sm">{name}</span>
                 </div>
-                <button onClick={() => alert('Eliminar participante aún no conectado al backend')} className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                  <UserMinus size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={async () => {
+                      if(confirm(`¿Estás seguro de que quieres proponer a ${name} como nuevo administrador?`)) {
+                        // Assuming activity.participantIds is available and matches name index. 
+                        // Let's use it if available, else alert.
+                        const targetUserId = activity.participantIds?.[i];
+                        if (targetUserId) {
+                           const { supabase } = await import('@/lib/supabase');
+                           const { error } = await supabase.from('activities').update({ pending_transfer_id: targetUserId }).eq('id', activity.id);
+                           if (!error) {
+                             alert(`Se ha enviado la propuesta a ${name}.`);
+                             onClose();
+                           }
+                        } else {
+                           alert('No se pudo encontrar el ID del usuario.');
+                        }
+                      }
+                    }}
+                    className="text-blue-500 text-xs font-bold px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+                  >
+                    Delegar
+                  </button>
+                  <button onClick={() => alert('Eliminar participante aún no conectado al backend')} className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                    <UserMinus size={18} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

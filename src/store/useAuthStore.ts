@@ -15,10 +15,13 @@ interface AuthState {
     avatarUrl?: string;
   } | null;
   guestJoinedActivities: number[]; // Track joined activities for guests
+  guestCreatedCount: number; // Track created activities for guests
   isLoginModalOpen: boolean;
   pendingActivityId: number | null;
   loginAsGuest: (name: string) => void;
   joinActivity: (activityId: number) => boolean; // Returns false if guest limit reached
+  incrementGuestCreated: () => boolean;
+  decrementGuestCreated: () => void;
   leaveActivity: (activityId: number) => void;
   logout: () => void;
   setIsLoginModalOpen: (isOpen: boolean) => void;
@@ -32,10 +35,11 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
   guestJoinedActivities: [],
+  guestCreatedCount: 0,
   isLoginModalOpen: false,
   pendingActivityId: null,
   
-  loginAsGuest: (name) => set({ user: { id: crypto.randomUUID(), name, type: 'guest' }, guestJoinedActivities: [] }),
+  loginAsGuest: (name) => set({ user: { id: crypto.randomUUID(), name, type: 'guest' }, guestJoinedActivities: [], guestCreatedCount: 0 }),
   
   leaveActivity: (activityId) => set((state) => ({ 
     guestJoinedActivities: state.guestJoinedActivities.filter(id => id !== activityId) 
@@ -46,7 +50,7 @@ export const useAuthStore = create<AuthState>()(
     if (!user) return false;
     
     if (user.type === 'guest') {
-      if (guestJoinedActivities.length >= 1 && !guestJoinedActivities.includes(activityId)) {
+      if (guestJoinedActivities.length >= 5 && !guestJoinedActivities.includes(activityId)) {
         return false; // Limit reached
       }
       if (!guestJoinedActivities.includes(activityId)) {
@@ -55,6 +59,20 @@ export const useAuthStore = create<AuthState>()(
       return true;
     }
     return true; // Registered users have no limit
+  },
+
+  decrementGuestCreated: () => set(state => ({
+    guestCreatedCount: Math.max(0, state.guestCreatedCount - 1)
+  })),
+  incrementGuestCreated: () => {
+    const { user, guestCreatedCount } = get();
+    if (!user) return false;
+    if (user.type === 'guest') {
+      if (guestCreatedCount >= 3) return false;
+      set({ guestCreatedCount: guestCreatedCount + 1 });
+      return true;
+    }
+    return true;
   },
   
   logout: async () => {
@@ -74,13 +92,16 @@ export const useAuthStore = create<AuthState>()(
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         const currentUser = get().user;
-        set({ user: { 
-          ...currentUser,
-          id: session.user.id, 
-          email: session.user.email,
-          name: currentUser?.name || session.user.email?.split('@')[0] || 'Usuario', 
-          type: 'registered' 
-        }});
+        set({ 
+          user: { 
+            ...currentUser,
+            id: session.user.id, 
+            email: session.user.email,
+            name: currentUser?.name || session.user.email?.split('@')[0] || 'Usuario', 
+            type: 'registered' 
+          },
+          isLoginModalOpen: false 
+        });
       }
     });
 
@@ -88,13 +109,16 @@ export const useAuthStore = create<AuthState>()(
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         const currentUser = get().user;
-        set({ user: { 
-          ...currentUser,
-          id: session.user.id, 
-          email: session.user.email,
-          name: currentUser?.name || session.user.email?.split('@')[0] || 'Usuario', 
-          type: 'registered' 
-        }});
+        set({ 
+          user: { 
+            ...currentUser,
+            id: session.user.id, 
+            email: session.user.email,
+            name: currentUser?.name || session.user.email?.split('@')[0] || 'Usuario', 
+            type: 'registered' 
+          },
+          isLoginModalOpen: false
+        });
       } else {
         // Only clear if they were registered (don't clear guest users randomly)
         const currentUser = get().user;
@@ -107,5 +131,6 @@ export const useAuthStore = create<AuthState>()(
 }),
 {
   name: 'auth-storage',
+  partialize: (state) => ({ ...state, isLoginModalOpen: false }),
 }
 ));

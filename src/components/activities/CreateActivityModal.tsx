@@ -1,8 +1,10 @@
 import { X, Search, MapPin, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useActivityStore } from '@/store/useActivityStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { supabase } from '@/lib/supabase';
+import * as L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export function CreateActivityModal({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
   const { updateActivity, addActivity } = useActivityStore();
@@ -10,35 +12,93 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerInstanceRef = useRef<L.Marker | null>(null);
+  
   
   // Set initial state based on initialData
   const [selectedPlace, setSelectedPlace] = useState<any>(
     initialData ? { 
       display_name: initialData.exactAddress || initialData.locationName,
       lat: initialData.lat,
-      lon: initialData.lon
+      lon: initialData.lng || initialData.lon
     } : null
   );
   
   useEffect(() => {
     if (!initialData && navigator.geolocation && !selectedPlace) {
       navigator.geolocation.getCurrentPosition((pos) => {
-        setSelectedPlace({
-          display_name: 'Ubicación Actual',
+        const newLoc = {
+          display_name: 'Tu Ubicación Actual',
           lat: pos.coords.latitude,
           lon: pos.coords.longitude
-        });
-      }, () => {
-        // Fallback or handle error silently
-      });
+        };
+        setSelectedPlace(newLoc);
+      }, () => {});
     }
   }, [initialData]);
+
+  // Inicializar Mapa
+  useEffect(() => {
+    if (typeof window !== 'undefined' && mapContainerRef.current && !mapInstanceRef.current) {
+      const defaultLat = selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489;
+      const defaultLon = selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693;
+      
+      mapInstanceRef.current = L.map(mapContainerRef.current, { zoomControl: false }).setView([defaultLat, defaultLon], 15);
+      L.control.zoom({ position: 'bottomright' }).addTo(mapInstanceRef.current);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(mapInstanceRef.current);
+      
+      const icon = L.divIcon({
+        html: `<div style="font-size: 28px; transform: translate(-14px, -28px); text-shadow: 0 2px 4px rgba(0,0,0,0.4);">📍</div>`,
+        className: 'custom-pin'
+      });
+
+      markerInstanceRef.current = L.marker([defaultLat, defaultLon], { draggable: true, icon }).addTo(mapInstanceRef.current);
+      
+      markerInstanceRef.current.on('dragend', (e) => {
+        const pos = e.target.getLatLng();
+        setSelectedPlace((prev: any) => ({
+          ...prev,
+          lat: pos.lat,
+          lon: pos.lng,
+          display_name: prev?.display_name || 'Ubicación seleccionada en el mapa'
+        }));
+      });
+      
+      mapInstanceRef.current.on('click', (e) => {
+        const pos = e.latlng;
+        markerInstanceRef.current?.setLatLng(pos);
+        setSelectedPlace((prev: any) => ({
+          ...prev,
+          lat: pos.lat,
+          lon: pos.lng,
+          display_name: prev?.display_name || 'Ubicación seleccionada en el mapa'
+        }));
+      });
+    }
+  }, []);
+
+  // Volar al punto cuando selectedPlace cambia
+  useEffect(() => {
+    if (mapInstanceRef.current && markerInstanceRef.current && selectedPlace) {
+      const lat = parseFloat(selectedPlace.lat);
+      const lon = parseFloat(selectedPlace.lon);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        mapInstanceRef.current.flyTo([lat, lon], 16);
+        markerInstanceRef.current.setLatLng([lat, lon]);
+      }
+    }
+  }, [selectedPlace?.lat, selectedPlace?.lon]);
 
   const [title, setTitle] = useState(initialData?.title || '');
   const [category, setCategory] = useState(initialData?.category || 'Fútbol');
   const [date, setDate] = useState(initialData?.date || '');
   const [time, setTime] = useState(initialData?.time || '');
   const [organizerNote, setOrganizerNote] = useState(initialData?.organizerNote || '');
+  const [isBenefit, setIsBenefit] = useState(initialData?.is_benefit || false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchPlaces = async () => {
@@ -61,78 +121,95 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
     }
     
     setIsSubmitting(true);
-    const data = {
-      title,
-      category,
-      date,
-      time,
-      location_name: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
-      exact_address: selectedPlace?.display_name || '',
-      organizer_note: organizerNote,
-      lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489,
-      lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693,
-      max_participants: 10,
-      creator_id: user?.id,
-      rating: 5.0
-    };
-    
-    if (initialData && initialData.id) {
-      const { data: updatedDbData, error } = await supabase
-        .from('activities')
-        .update(data)
-        .eq('id', initialData.id)
-        .select();
-        
-      if (error) {
-        console.error('Error updating activity:', error);
-        alert(`Error al guardar en la nube: ${error.message}`);
-      } else {
-        // Formatear para el store local (camelCase)
-        updateActivity(initialData.id, {
-          ...data,
-          locationName: data.location_name,
-          exactAddress: data.exact_address,
-          organizerNote: data.organizer_note,
-          maxParticipants: data.max_participants,
-          creatorId: data.creator_id
-        });
-        alert('¡Cambios guardados con éxito!');
-      }
-      setIsSubmitting(false);
-      onClose();
-    } else {
-      const { data: newActivity, error } = await supabase
-        .from('activities')
-        .insert([data])
-        .select()
-        .single();
-        
-      if (error) {
-        console.error('Error creating activity:', error);
-        alert('Hubo un error al crear la actividad.');
-      } else {
-        // Al crearla, el creador también debería unirse como participante automáticamente
-        if (user) {
-           await supabase.from('activity_participants').insert([{
-             activity_id: newActivity.id,
-             user_id: user.id,
-             user_name: user.name
-           }]);
+    try {
+      const data = {
+        title,
+        category,
+        date,
+        time,
+        location_name: selectedPlace?.display_name?.split(',')[0] || 'Por definir',
+        exact_address: selectedPlace?.display_name || '',
+        organizer_note: organizerNote,
+        lat: selectedPlace ? parseFloat(selectedPlace.lat) : -33.4489,
+        lng: selectedPlace ? parseFloat(selectedPlace.lon) : -70.6693,
+        max_participants: 10,
+        creator_id: user?.id,
+        rating: 5.0,
+        is_benefit: category === 'Completada' ? isBenefit : false
+      };
+      
+      if (initialData && initialData.id) {
+        const { data: updatedDbData, error } = await supabase
+          .from('activities')
+          .update(data)
+          .eq('id', initialData.id)
+          .select();
+          
+        if (error) {
+          console.error('Error updating activity:', error);
+          alert(`Error al guardar en la nube: ${error.message}`);
+        } else {
+          updateActivity(initialData.id, {
+            ...data,
+            locationName: data.location_name,
+            exactAddress: data.exact_address,
+            organizerNote: data.organizer_note,
+            maxParticipants: data.max_participants,
+            creatorId: data.creator_id
+          });
+          alert('¡Cambios guardados con éxito!');
+          onClose();
         }
-        // Agregamos al store para verlo sin recargar
-        addActivity({
-          ...newActivity,
-          locationName: newActivity.location_name,
-          exactAddress: newActivity.exact_address,
-          organizerNote: newActivity.organizer_note,
-          maxParticipants: newActivity.max_participants,
-          creatorId: newActivity.creator_id,
-          participants: [user?.name || 'Organizador'],
-          participantIds: [user?.id]
-        });
+      } else {
+        const { data: newActivity, error } = await supabase
+          .from('activities')
+          .insert([data])
+          .select()
+          .single();
+          
+        if (error) {
+          console.error('Error creating activity:', error);
+          alert(`Hubo un error al crear la actividad: ${error.message}`);
+        } else {
+          if (user) {
+             await supabase.from('activity_participants').insert([{
+               activity_id: newActivity.id,
+               user_id: user.id,
+               user_name: user.name
+             }]);
+          }
+
+          if (data.is_benefit) {
+             const defaultItems = ['Tomate', 'Palta', 'Ketchup', 'Mayonesa', 'Pan de completo', 'Vienesas', 'Servilletas'].map(item => ({
+               activity_id: newActivity.id,
+               item_name: item,
+             }));
+             await supabase.from('activity_items').insert(defaultItems);
+          }
+
+          addActivity({
+            ...newActivity,
+            locationName: newActivity.location_name,
+            exactAddress: newActivity.exact_address,
+            organizerNote: newActivity.organizer_note,
+            maxParticipants: newActivity.max_participants,
+            creatorId: newActivity.creator_id,
+            participants: [user?.name || 'Organizador'],
+            participantIds: [user?.id],
+            isBenefit: newActivity.is_benefit
+          });
+          
+          if (user?.type === 'guest') {
+            useAuthStore.getState().incrementGuestCreated();
+          }
+          onClose();
+        }
       }
+    } catch (e: any) {
+      console.error("Excepción en handleSave:", e);
+      alert(`Ocurrió un error inesperado: ${e.message || 'Inténtalo de nuevo.'}`);
+    } finally {
       setIsSubmitting(false);
-      onClose();
     }
   };
 
@@ -167,6 +244,7 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
                  { name: 'Comer', emoji: '🍽️' },
                  { name: 'Cerveza', emoji: '🍺' },
                  { name: 'Cine', emoji: '🎬' },
+                 { name: 'Completada', emoji: '🌭' },
                  { name: 'Paseo', emoji: '🚶' }
                ].map(cat => (
                  <button
@@ -180,6 +258,19 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
                  </button>
                ))}
              </div>
+             
+             {category === 'Completada' && (
+               <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl flex items-center justify-between">
+                 <div>
+                   <p className="text-sm font-bold text-orange-800 dark:text-orange-400">Es a beneficio / Activar Aportes</p>
+                   <p className="text-xs text-orange-600 dark:text-orange-500">Permite que los participantes se anoten para llevar ingredientes.</p>
+                 </div>
+                 <label className="relative inline-flex items-center cursor-pointer">
+                   <input type="checkbox" checked={isBenefit} onChange={e => setIsBenefit(e.target.checked)} className="sr-only peer" />
+                   <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                 </label>
+               </div>
+             )}
            </div>
 
            <div className="mb-4 relative">
@@ -216,15 +307,29 @@ export function CreateActivityModal({ onClose, initialData }: { onClose: () => v
              {selectedPlace && (
                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-lg flex justify-between items-center mt-2">
                  <p className="text-sm font-medium text-green-800 dark:text-green-400 line-clamp-1 flex-1 pr-4">{selectedPlace.display_name}</p>
-                 <button onClick={() => setSelectedPlace(null)} className="text-green-600 dark:text-green-400"><X size={16} /></button>
                </div>
              )}
+             
+             <div className="mt-2 text-xs text-slate-500 font-medium mb-1 flex items-center justify-between">
+               <span>Punto exacto del evento:</span>
+               <span className="text-green-600">Puedes arrastrar el pin 📍</span>
+             </div>
+             <div 
+               ref={mapContainerRef} 
+               className="w-full h-48 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 z-0 relative overflow-hidden"
+             />
            </div>
            
            <div className="grid grid-cols-2 gap-4 mb-2">
              <div>
                <label className="block text-sm font-medium mb-1">Fecha</label>
-               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border p-3 rounded-lg dark:bg-slate-800 dark:border-slate-700 bg-transparent text-sm" />
+               <input 
+                 type="date" 
+                 value={date} 
+                 min={new Date().toISOString().split('T')[0]}
+                 onChange={e => setDate(e.target.value)} 
+                 className="w-full border p-3 rounded-lg dark:bg-slate-800 dark:border-slate-700 bg-transparent text-sm" 
+               />
              </div>
              <div>
                <label className="block text-sm font-medium mb-1">Hora</label>

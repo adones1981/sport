@@ -1,4 +1,4 @@
-import { X, Send, User } from 'lucide-react';
+import { X, Send, User, MessageSquare } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -28,22 +28,28 @@ export function DirectMessageModal({
 
     const fetchMessages = async () => {
       const { data } = await supabase
-        .from('activity_chats')
+        .from('direct_messages')
         .select('*')
-        .eq('activity_id', dmRoomId)
+        .or(`and(sender_id.eq.${user?.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user?.id})`)
         .order('created_at', { ascending: true });
       if (data) setMessages(data);
     };
 
     fetchMessages();
 
-    const channel = supabase.channel(`dm_${dmRoomId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_chats', filter: `activity_id=eq.${dmRoomId}` }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
+    // Since RLS is on, we can just listen to direct_messages
+    const channel = supabase.channel(`dm_${user?.id}_${otherUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, (payload) => {
+        // filter manually if needed, since supabase channels filter by eq is limited
+        const newMsg = payload.new;
+        if ((newMsg.sender_id === user?.id && newMsg.receiver_id === otherUserId) || 
+            (newMsg.sender_id === otherUserId && newMsg.receiver_id === user?.id)) {
+          setMessages(prev => [...prev, newMsg]);
+        }
       }).subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [dmRoomId]);
+  }, [otherUserId, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,11 +62,11 @@ export function DirectMessageModal({
     const text = msg;
     setMsg(''); // clear input early for UX
 
-    await supabase.from('activity_chats').insert([{
-      activity_id: dmRoomId,
-      user_id: user.id,
-      user_name: user.name,
-      text: text
+    await supabase.from('direct_messages').insert([{
+      sender_id: user.id,
+      sender_name: user.name,
+      receiver_id: otherUserId,
+      content: text
     }]);
   };
 
@@ -92,12 +98,13 @@ export function DirectMessageModal({
             </div>
           ) : (
             messages.map((m: any, i: number) => {
-              const isMe = m.user_id === user?.id;
+              const isMe = m.sender_id === user?.id;
               return (
                 <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}>
                   <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2 ${isMe ? 'bg-green-600 text-white rounded-br-none shadow-green-600/20 shadow-lg' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-none shadow-md'}`}>
-                    <p className="text-sm">{m.text}</p>
+                    <p className="text-sm">{m.content}</p>
                   </div>
+                  <span className="text-[10px] text-slate-400 mt-1 px-1">{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   <span className="text-[10px] text-slate-400 mt-1 px-1">
                     {new Date(m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
