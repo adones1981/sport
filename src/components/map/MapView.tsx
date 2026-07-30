@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 
 const getCategoryEmoji = (category: string) => {
@@ -71,6 +69,17 @@ export function MapView({ activities, onActivityClick, selectedActivityId, searc
       if (!(L as any).markerClusterGroup) {
         if (typeof window !== 'undefined') {
           (window as any).L = L;
+        }
+        // Dynamically inject markercluster CSS if not already added
+        if (!document.getElementById('markercluster-css')) {
+          const baseUrl = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/';
+          ['MarkerCluster.css', 'MarkerCluster.Default.css'].forEach(file => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = baseUrl + file;
+            link.id = file === 'MarkerCluster.css' ? 'markercluster-css' : 'markercluster-default-css';
+            document.head.appendChild(link);
+          });
         }
         require('leaflet.markercluster');
       }
